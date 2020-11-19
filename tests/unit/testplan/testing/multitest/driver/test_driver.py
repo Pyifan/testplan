@@ -1,16 +1,41 @@
-"""TODO."""
+"""Unit tests for the driver base."""
 
-from testplan.testing.multitest.driver.base import Driver
+from testplan.testing.multitest.driver import base
 
 
-def test_pre_post_callables():
-    class MyDriver(Driver):
+def pre_start_fn(driver):
+    assert driver.pre_start_called
+    driver.pre_start_fn_called = True
+
+
+def post_start_fn(driver):
+    driver.post_start_fn_called = True
+
+
+def pre_stop_fn(driver):
+    assert driver.pre_stop_called
+    driver.pre_stop_fn_called = True
+
+
+def post_stop_fn(driver):
+    driver.post_stop_fn_called = True
+
+
+class TestPrePostCallables(object):
+    """Test pre/post callables."""
+
+    class MyDriver(base.Driver):
         def __init__(self, **options):
-            super(MyDriver, self).__init__(**options)
+            super(TestPrePostCallables.MyDriver, self).__init__(**options)
             self.pre_start_called = False
             self.post_start_called = False
             self.pre_stop_called = False
             self.post_stop_called = False
+
+            self.pre_start_fn_called = False
+            self.post_start_fn_called = False
+            self.pre_stop_fn_called = False
+            self.post_stop_fn_called = False
 
         def pre_start(self):
             self.pre_start_called = True
@@ -24,31 +49,75 @@ def test_pre_post_callables():
         def post_stop(self):
             self.post_stop_called = True
 
-    driver = MyDriver(name='MyDriver')
+    def test_explicit_start_stop(self, runpath):
+        """
+        Test pre/post start methods when starting/stopping the driver
+        explicitly.
+        """
+        driver = self.MyDriver(name="MyDriver", runpath=runpath)
 
-    assert driver.pre_start_called is False
-    assert driver.post_start_called is False
-    driver.start()
-    assert driver.pre_start_called is True
-    assert driver.post_start_called is False
-    driver.wait(driver.STATUS.STARTED)
-    assert driver.post_start_called is True
-    assert driver.pre_stop_called is False
-    assert driver.post_stop_called is False
-    driver.stop()
-    assert driver.pre_stop_called is True
-    assert driver.post_stop_called is False
-    driver.wait(driver.STATUS.STOPPED)
-    assert driver.post_stop_called is True
+        assert not driver.pre_start_called
+        assert not driver.post_start_called
 
-    driver = MyDriver(name='MyDriver')
+        driver.start()
 
-    assert driver.pre_start_called is False
-    assert driver.post_start_called is False
-    with driver:
-        assert driver.pre_start_called is True
-        assert driver.post_start_called is True
-        assert driver.pre_stop_called is False
-        assert driver.post_stop_called is False
-    assert driver.pre_stop_called is True
-    assert driver.post_stop_called is True
+        assert driver.pre_start_called
+        assert not driver.post_start_called
+
+        driver.wait(driver.STATUS.STARTED)
+
+        assert driver.post_start_called
+        assert not driver.pre_stop_called
+        assert not driver.post_stop_called
+
+        driver.stop()
+
+        assert driver.pre_stop_called
+        assert not driver.post_stop_called
+
+        driver.wait(driver.STATUS.STOPPED)
+
+        assert driver.post_stop_called
+
+    def test_mgr_start_stop(self, runpath):
+        """Test pre/post start methods when starting/stopping the driver
+        implicitly via a context manager.
+        """
+        driver = self.MyDriver(name="MyDriver", runpath=runpath)
+
+        assert not driver.pre_start_called
+        assert not driver.post_start_called
+
+        with driver:
+            assert driver.pre_start_called
+            assert driver.post_start_called
+            assert not driver.pre_stop_called
+            assert not driver.post_stop_called
+
+        assert driver.pre_stop_called
+        assert driver.post_stop_called
+
+    def test_start_stop_fn(self, runpath):
+        """Test pre/post start callables when starting/stopping the driver
+        implicitly via a context manager."""
+
+        driver = self.MyDriver(
+            name="MyDriver",
+            runpath=runpath,
+            pre_start=pre_start_fn,
+            post_start=post_start_fn,
+            pre_stop=pre_stop_fn,
+            post_stop=post_stop_fn,
+        )
+
+        assert not driver.pre_start_fn_called
+        assert not driver.post_start_fn_called
+
+        with driver:
+            assert driver.pre_start_fn_called
+            assert driver.post_start_fn_called
+            assert not driver.pre_stop_fn_called
+            assert not driver.post_stop_fn_called
+
+        assert driver.pre_stop_fn_called
+        assert driver.post_stop_fn_called

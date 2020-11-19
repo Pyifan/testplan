@@ -2,6 +2,7 @@
  * Sample Testplan reports to be used in development & testing.
  */
 const TESTPLAN_REPORT = {
+  "category": "testplan",
   "name": "Sample Testplan",
   "status": "failed",
   "uid": "520a92e4-325e-4077-93e6-55d7091a3f83",
@@ -36,7 +37,7 @@ const TESTPLAN_REPORT = {
       "entries": [
         {
           "status": "failed",
-          "category": "suite",
+          "category": "testsuite",
           "name": "AlphaSuite",
           "status_override": null,
           "description": null,
@@ -54,6 +55,7 @@ const TESTPLAN_REPORT = {
           },
           "entries": [
             {
+              "category": 'testcase',
               "name": "test_equality_passing",
               "status": "passed",
               "status_override": null,
@@ -87,6 +89,7 @@ const TESTPLAN_REPORT = {
               ],
             },
             {
+              "category": 'testcase',
               "name": "test_equality_passing2",
               "status": "failed",
               "tags": {},
@@ -121,7 +124,7 @@ const TESTPLAN_REPORT = {
         },
         {
           "status": "passed",
-          "category": "suite",
+          "category": "testsuite",
           "name": "BetaSuite",
           "status_override": null,
           "description": null,
@@ -139,6 +142,7 @@ const TESTPLAN_REPORT = {
           },
           "entries": [
             {
+              "category": 'testcase',
               "name": "test_equality_passing",
               "status": "passed",
               "tags": {},
@@ -192,7 +196,7 @@ const TESTPLAN_REPORT = {
       "entries": [
         {
           "status": "passed",
-          "category": "suite",
+          "category": "testsuite",
           "name": "GammaSuite",
           "tags": {},
           "status_override": null,
@@ -208,6 +212,7 @@ const TESTPLAN_REPORT = {
           },
           "entries": [
             {
+              "category": 'testcase',
               "name": "test_equality_passing",
               "status": "passed",
               "tags": {},
@@ -245,6 +250,192 @@ const TESTPLAN_REPORT = {
   ],
 };
 
+// Simple report that only contains one MultiTest and one suite.
+const SIMPLE_REPORT = {
+  "category": "testplan",
+  "name": "Sample Testplan",
+  "status": "failed",
+  "uid": "520a92e4-325e-4077-93e6-55d7091a3f83",
+  "tags_index": {},
+  "status_override": null,
+  "meta": {},
+  "timer": {
+    "run": {
+      "start": "2018-10-15T14:30:10.998071+00:00",
+      "end": "2018-10-15T14:30:11.296158+00:00"
+    }
+  },
+  "entries": [{
+    "name": "Primary",
+    "status": "failed",
+    "category": "multitest",
+    "description": null,
+    "status_override": null,
+    "uid": "21739167-b30f-4c13-a315-ef6ae52fd1f7",
+    "type": "TestGroupReport",
+    "logs": [],
+    "tags": {
+      "simple": ["server"]
+    },
+    "timer": {
+      "run": {
+        "start": "2018-10-15T14:30:11.009705+00:00",
+        "end": "2018-10-15T14:30:11.159661+00:00"
+      }
+    },
+    "entries": [{
+      "status": "failed",
+      "category": "testsuite",
+      "name": "AlphaSuite",
+      "status_override": null,
+      "description": null,
+      "uid": "cb144b10-bdb0-44d3-9170-d8016dd19ee7",
+      "type": "TestGroupReport",
+      "logs": [],
+      "tags": {
+        "simple": ["server"]
+      },
+      "timer": {
+        "run": {
+          "start": "2018-10-15T14:30:11.009872+00:00",
+          "end": "2018-10-15T14:30:11.158224+00:00"
+        }
+      },
+      "entries": [{
+        "category": 'testcase',
+        "name": "test_equality_passing",
+        "status": "passed",
+        "status_override": null,
+        "description": null,
+        "uid": "736706ef-ba65-475d-96c5-f2855f431028",
+        "type": "TestCaseReport",
+        "logs": [],
+        "tags": {
+          "colour": ["white"]
+        },
+        "timer": {
+          "run": {
+            "start": "2018-10-15T14:30:11.010072+00:00",
+            "end": "2018-10-15T14:30:11.132214+00:00"
+          }
+        },
+        "entries": [{
+          "category": "DEFAULT",
+          "machine_time": "2018-10-15T15:30:11.010098+00:00",
+          "description": "passing equality",
+          "line_no": 24,
+          "label": "==",
+          "second": 1,
+          "meta_type": "assertion",
+          "passed": true,
+          "type": "Equal",
+          "utc_time": "2018-10-15T14:30:11.010094+00:00",
+          "first": 1
+        }],
+      }],
+    }],
+  }],
+};
+
+// Simple report that only contains one MultiTest and one suite.
+const ERROR_REPORT = {
+  "category": "testplan",
+  "name": "Testplan with errors",
+  "status": "error",
+  "uid": "520a92e4-325e-4077-93e6-55d7091a3f83",
+  "tags_index": {},
+  "status_override": null,
+  "meta": {},
+  "timer": {
+    "run": {
+      "start": "2018-10-15T14:30:10.998071+00:00",
+      "end": "2018-10-15T14:30:11.296158+00:00"
+    }
+  },
+  "entries": [],
+  "logs": [
+    {
+      "message": "While starting resource [client]\nTraceback (most recent call last):\n  File \"/tmp/myworkspace/testplan/common/entity/base.py\", line 143, in start\n    resource.start()\n  File \"/tmp/myworkspace/testplan/testing/multitest/driver/base.py\", line 148, in start\n    self.starting()\n  File \"/tmp/myworkspace/testplan/testing/multitest/driver/tcp/client.py\", line 161, in starting\n    1/0\nZeroDivisionError: integer division or modulo by zero\n",
+      "created": "2018-10-15T14:30:12.971680+00:00",
+      "levelno": 40,
+      "levelname": "ERROR",
+      "funcName": "post_step_call",
+      "lineno": 387,
+      "uid": "dbc47190-505b-4153-ab3e-fec460eac78d"
+    }
+  ]
+};
+
+/**
+ * Fake interactive report. All entries start with a status of "ready".
+ */
+const FakeInteractiveReport = {
+  counter: {passed: 0, failed: 0},
+  entries: [{
+    counter: {passed: 0, failed: 0},
+    category: "multitest",
+    description: "Interactive MTest Desc",
+    entries: [{
+      counter: {passed: 0, failed: 0},
+      category: "testsuite",
+      description: "Interactive Suite Desc",
+      entries: [{
+        counter: {passed: 0, failed: 0},
+        description: "Interactive Testcase Desc",
+        entries: [],
+        logs: [],
+        name: "test_interactive",
+        name_type_index: [],
+        status: 'unknown',
+        runtime_status: 'ready',
+        status_override: null,
+        suite_related: false,
+        tags: {},
+        tags_index: {},
+        timer: {},
+        type: "TestCaseReport",
+        uid: "ddd",
+      }],
+      logs: [],
+      name: "Interactive Suite",
+      name_type_index: [],
+      part: null,
+      status: 'unknown',
+      runtime_status: 'ready',
+      status_override: null,
+      tags: {},
+      tags_index: {},
+      timer: {},
+      type: "TestGroupReport",
+      uid: "ccc",
+    }],
+    logs: [],
+    name: "Interactive MTest",
+    name_type_index: [],
+    part: null,
+    status: 'unknown',
+    runtime_status: 'ready',
+    status_override: null,
+    tags: {},
+    tags_index: {},
+    timer: {},
+    type: "TestGroupReport",
+    uid: "bbb",
+  }],
+  meta: {},
+  name: "Fake Interactive Report",
+  name_type_index: [],
+  status: 'unknown',
+  runtime_status: 'ready',
+  status_override: null,
+  tags_index: {},
+  timer: null,
+  uid: "aaa",
+};
+
 export {
   TESTPLAN_REPORT,
+  SIMPLE_REPORT,
+  ERROR_REPORT,
+  FakeInteractiveReport,
 }

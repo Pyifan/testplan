@@ -15,7 +15,7 @@ import sys
 import logging
 
 from testplan.common.utils.strings import Color
-
+from testplan.report import Status
 
 # Define our log-level constants. We add some extra levels between INFO and
 # WARNING.
@@ -28,9 +28,11 @@ DRIVER_INFO = 27
 INFO = logging.INFO  # 20
 DEBUG = logging.DEBUG  # 10
 
-LOGFILE_NAME = 'testplan.log'
-_LOGFILE_FORMAT = ('%(asctime)-24s %(processName)-12s %(threadName)-12s '
-                   '%(name)-30s %(levelname)-15s %(message)s')
+LOGFILE_NAME = "testplan.log"
+_LOGFILE_FORMAT = (
+    "%(asctime)-24s %(processName)-12s %(threadName)-12s "
+    "%(name)-30s %(levelname)-15s %(message)s"
+)
 
 
 class TestplanLogger(logging.Logger):
@@ -39,21 +41,24 @@ class TestplanLogger(logging.Logger):
     corresponding methods for EXPORTER_INFO, TEST_INFO and DRIVER_INFO levels.
     """
 
-    _TEST_STATUS_FORMAT = '%(indent)s[%(name)s] -> %(pass_label)s'
+    _TEST_STATUS_FORMAT = "%(indent)s[%(name)s] -> %(pass_label)s"
 
     # In addition to the built-in log levels, we add some extras.
     _CUSTOM_LEVELS = {
         level_name: globals()[level_name]
-        for level_name in ('EXPORTER_INFO', 'TEST_INFO', 'DRIVER_INFO')
+        for level_name in ("EXPORTER_INFO", "TEST_INFO", "DRIVER_INFO")
     }
 
     # As well as storing the log levels as global constants, we also store them
     # all in a dict on this class. This is useful for enumerating all valid
     # log levels.
     LEVELS = _CUSTOM_LEVELS.copy()
-    LEVELS.update({
-        level_name: globals()[level_name]
-        for level_name in ('CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG')})
+    LEVELS.update(
+        {
+            level_name: globals()[level_name]
+            for level_name in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG")
+        }
+    )
 
     def __init__(self, *args, **kwargs):
         """
@@ -80,15 +85,24 @@ class TestplanLogger(logging.Logger):
         """Log 'msg % args' with severity 'DRIVER_INFO'"""
         self._custom_log(DRIVER_INFO, msg, *args, **kwargs)
 
-    def log_test_status(self, name, passed, indent=0, level=TEST_INFO):
+    def log_test_status(self, name, status, indent=0, level=TEST_INFO):
         """Shortcut to log a pass/fail status for a test."""
-        pass_label = Color.green('Pass') if passed else Color.red('Fail')
-        indent_str = indent * ' '
+        if Status.STATUS_CATEGORY[status] == Status.PASSED:
+            pass_label = Color.green(status.title())
+        elif Status.STATUS_CATEGORY[status] in [Status.FAILED, Status.ERROR]:
+            pass_label = Color.red(status.title())
+        elif Status.STATUS_CATEGORY[status] == Status.UNSTABLE:
+            pass_label = Color.yellow(status.title())
+        else:  # unknown
+            pass_label = status
+
+        indent_str = indent * " "
         msg = self._TEST_STATUS_FORMAT
         self._custom_log(
             level,
             msg,
-            {'name': name, 'pass_label': pass_label, 'indent': indent_str})
+            {"name": name, "pass_label": pass_label, "indent": indent_str},
+        )
 
     def _custom_log(self, level, msg, *args, **kwargs):
         """Log 'msg % args' with severity 'level'."""
@@ -104,7 +118,7 @@ def _initial_setup():
     :return: root logger object and stdout logging handler
     """
     logging.setLoggerClass(TestplanLogger)
-    root_logger = logging.getLogger('testplan')
+    root_logger = logging.getLogger("testplan")
 
     # Set the level of the root logger to DEBUG so that nothing is filtered out
     # by the logger itself - the handlers will perform filtering.
@@ -116,7 +130,7 @@ def _initial_setup():
     # when those args are parsed; however to begin with we set the level to
     # TEST_INFO as a default.
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_formatter = logging.Formatter('%(message)s')
+    stdout_formatter = logging.Formatter("%(message)s")
     stdout_handler.setFormatter(stdout_formatter)
     stdout_handler.setLevel(TEST_INFO)
     root_logger.addHandler(stdout_handler)
@@ -143,8 +157,10 @@ def configure_file_logger(level, runpath):
     """
     if level not in TestplanLogger.LEVELS.values():
         raise ValueError(
-            'Unexpected log level {level} - expected one of {expected}'
-            .format(level=level, expected=TestplanLogger.LEVELS.values()))
+            "Unexpected log level {level} - expected one of {expected}".format(
+                level=level, expected=TestplanLogger.LEVELS.values()
+            )
+        )
 
     logfile_path = os.path.join(runpath, LOGFILE_NAME)
 
@@ -157,16 +173,18 @@ def configure_file_logger(level, runpath):
     except IOError as err:
         # If we cannot open the logfile for any reason just continue
         # regardless, but log the error (it will go to stdout).
-        TESTPLAN_LOGGER.error('Cannot open log file at %s for writing: %s',
-                              logfile_path,
-                              err)
+        TESTPLAN_LOGGER.error(
+            "Cannot open log file at %s for writing: %s", logfile_path, err
+        )
+        return None
     else:
         file_handler.setLevel(level)
         formatter = logging.Formatter(_LOGFILE_FORMAT)
         file_handler.setFormatter(formatter)
         TESTPLAN_LOGGER.addHandler(file_handler)
 
-        TESTPLAN_LOGGER.debug('Enabled logging to file: %s', logfile_path)
+        TESTPLAN_LOGGER.debug("Enabled logging to file: %s", logfile_path)
+        return file_handler
 
 
 class Loggable(object):
@@ -189,6 +207,31 @@ class Loggable(object):
         # take up a lot of space in the logfile. For brevity we just use
         # "testplan.<class name>" as the logger name, since class names are
         # mostly unique.
-        logger_name = '.'.join(('testplan', self.__class__.__name__))
-        self.logger = logging.getLogger(logger_name)
+
+        self._logger = None
         super(Loggable, self).__init__()
+
+    @property
+    def logger(self):
+        """logger object"""
+        # Define logger as a property instead of self.logger directly.
+        # This is to workaround a python2 issue that logger object cannot be
+        # pickled/deepcopied, but we need to do that for task target which
+        # could be a multitest object.
+
+        if self._logger:
+            return self._logger
+
+        logger_name = ".".join(("testplan", self.__class__.__name__))
+        self._logger = logging.getLogger(logger_name)
+        return self._logger
+
+    @property
+    def _debug_logging_enabled(self):
+        """
+        :return: True if the logging level is DEBUG (or lower) for the stdout
+            handler. We don't consider the file handler because that always
+            logs at DEBUG level.
+        :rtype: ``bool``
+        """
+        return STDOUT_HANDLER.level <= DEBUG

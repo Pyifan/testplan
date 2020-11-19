@@ -18,7 +18,7 @@ import {prepareBasicContent} from './basicAssertionUtils';
  * |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
  * | preContent    | rightContent  |
  * |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
- * | postContent                   |
+ * | postTitle                     |
  * |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~|
  * | postContent                   |
  * |_______________________________|
@@ -95,6 +95,7 @@ BasicAssertion.propTypes = {
 const styles = StyleSheet.create({
   contentSpan: {
     lineHeight: '110%',
+    'overflow-x': 'auto',
   },
 });
 

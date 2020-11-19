@@ -1,60 +1,61 @@
-import React, {Component} from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import {StyleSheet, css} from 'aphrodite';
 
 import NavEntry from './NavEntry';
-import {LIGHT_GREY, MEDIUM_GREY, DARK_GREY, STATUS} from "../Common/defaults";
-import {getNavEntryType} from "../Common/utils";
+import {
+  LIGHT_GREY, MEDIUM_GREY, DARK_GREY, STATUS, RUNTIME_STATUS
+} from "../Common/defaults";
+import CommonStyles from "../Common/Styles.js";
 
 /**
  * Render a horizontal menu of all the currently selected entries.
  */
-class NavBreadcrumbs extends Component {
-  /**
-   * Create the breadcrumb entry buttons.
-   *
-   * @returns {Array|string} - Array of breadcrumb entries or empty string.
-   */
-  createNavButtons() {
-    let navButtons = [];
-    for (const [depth, entry] of this.props.entries.entries()) {
-      navButtons.push(
-        <li
-          key={entry.uid}
-          onClick={((e) => this.props.handleNavClick(e, entry, depth))}>
-          <div className={css(styles.breadcrumbEntry)}>
-            <NavEntry
-              name={entry.name}
-              status={entry.status}
-              type={getNavEntryType(entry)}
-              caseCountPassed={entry.case_count.passed}
-              caseCountFailed={entry.case_count.failed} />
-          </div>
-        </li>
-      );
-    }
+const NavBreadcrumbs = (props) => {
+  const navButtons = createNavButtons(props);
+  return (
+    <div className={css(styles.navBreadcrumbs)}>
+      <ul className={css(styles.breadcrumbContainer)}>
+        {navButtons}
+      </ul>
+    </div>);
+};
 
-    return navButtons.length > 0 ? navButtons : '';
-  }
+/**
+ * Create the breadcrumb entry buttons.
+ *
+ * @returns {Array} - Array of breadcrumb entries
+ */
+const createNavButtons = (props) => props.entries.map((entry, depth) => {
+return (
+  <li
+    key={entry.uid}
+    onClick={((e) => props.handleNavClick(e, entry, depth))}>
+    <div className={css(styles.breadcrumbEntry, CommonStyles.unselectable)}>
+      <NavEntry
+        name={entry.name}
+        description={entry.description}
+        status={entry.status}
+        type={entry.category}
+        caseCountPassed={entry.counter.passed}
+        caseCountFailed={entry.counter.failed}
+        executionTime={null}
+        displayTime={false}
+      />
+    </div>
+  </li>
+);});
 
-  render() {
-    const navButtons = this.createNavButtons();
-    return (
-      <div className={css(styles.navBreadcrumbs)}>
-        <ul className={css(styles.breadcrumbContainer)}>
-          {navButtons}
-        </ul>
-      </div>);
-  }
-}
 
 NavBreadcrumbs.propTypes = {
   /** Nav breadcrumb entries to be displayed */
   entries: PropTypes.arrayOf(PropTypes.shape({
     uid: PropTypes.string,
     name: PropTypes.string,
+    description: PropTypes.string,
     status: PropTypes.oneOf(STATUS),
-    case_count: PropTypes.shape({
+    runtime_status: PropTypes.oneOf(RUNTIME_STATUS),
+    counter: PropTypes.shape({
       passed: PropTypes.number,
       failed: PropTypes.number,
     }),
@@ -63,23 +64,24 @@ NavBreadcrumbs.propTypes = {
   handleNavClick: PropTypes.func,
 };
 
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
   navBreadcrumbs: {
     top: '2.5em',
     borderBottom: 'solid 1px rgba(0, 0, 0, 0.1)',
     zIndex: 300,
     position: 'fixed',
-    display: 'inline-block',
+    display: 'block',
     height: '2em',
     width: '100%',
     backgroundColor: LIGHT_GREY,
-    overflowY: 'hidden',
+    overflow: "hidden",
   },
   breadcrumbContainer: {
     listStyle: 'none',
     padding: 0,
     margin: 0,
-    height: '100%',
+    //height: '100%',
+    height: '2em',
     width: '100%',
   },
   breadcrumbEntry: {
@@ -87,8 +89,10 @@ const styles = StyleSheet.create({
     padding: '0.25em 0em 0.25em 2em',
     float: 'left',
     position: 'relative',
-    display: 'block',
+    display: 'inline-block',
+    cursor: 'pointer',
     backgroundColor: MEDIUM_GREY,
+    height: '2em',
     ':before': {
       content: '\' \'',
       display: 'block',

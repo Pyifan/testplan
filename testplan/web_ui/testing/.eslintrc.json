@@ -6,8 +6,7 @@
     "commonjs": true
   },
   "extends": [
-    "eslint:recommended",
-    "plugin:react/recommended"
+    "react-app"
   ],
   "parserOptions": {
     "ecmaFeatures": {
@@ -25,7 +24,7 @@
     "react"
   ],
   "rules": {
-    "max-len": ["error", { "code": 80 }],
+    "max-len": ["error", { "code": 80, "comments": 120 }],
     "linebreak-style": [
       "error",
       "unix"
@@ -37,7 +36,6 @@
     "no-extra-parens": [2, "functions"],
     "no-self-compare": 2,
     "accessor-pairs": 2,
-    "allowSingleLine": true,
     "comma-spacing": [2, {
       "before": false,
       "after": true

@@ -25,8 +25,8 @@ class TCPServerConfig(DriverConfig):
         Schema for options validation and assignment of default values.
         """
         return {
-            ConfigOption('host', default='localhost'): str,
-            ConfigOption('port', default=0): Use(int)
+            ConfigOption("host", default="localhost"): str,
+            ConfigOption("port", default=0): Use(int),
         }
 
 
@@ -39,18 +39,21 @@ class TCPServer(Driver):
     :py:class:`testplan.common.utils.sockets.server.Server` class, which
     provides equivalent functionality and may be used outside of MultiTest.
 
+    :param name: Name of TCPServer.
+    :type name: ``str``
     :param host: Host name to bind to. Default: 'localhost'
     :type host: ``str``
     :param port: Port number to bind to. Default: 0 (Random port)
     :type port: ``int``
 
     Also inherits all
-    :py:class:`~testplan.testing.multitest.driver.base.Driver`` options.
+    :py:class:`~testplan.testing.multitest.driver.base.Driver` options.
     """
 
     CONFIG = TCPServerConfig
 
-    def __init__(self, **options):
+    def __init__(self, name, host="localhost", port=0, **options):
+        options.update(self.filter_locals(locals()))
         super(TCPServer, self).__init__(**options)
         self._host = None
         self._port = None
@@ -76,9 +79,10 @@ class TCPServer(Driver):
     def accept_connection(self, timeout=10):
         """Doc from Server."""
         return self._server.accept_connection(timeout=timeout)
+
     accept_connection.__doc__ = Server.accept_connection.__doc__
 
-    def send_text(self, msg, standard='utf-8', **kwargs):
+    def send_text(self, msg, standard="utf-8", **kwargs):
         """
         Encodes to bytes and calls
         :py:meth:`TCPServer.send
@@ -89,9 +93,10 @@ class TCPServer(Driver):
     def send(self, msg, conn_idx=None, timeout=30):
         """Doc from Server."""
         return self._server.send(msg=msg, conn_idx=conn_idx, timeout=timeout)
+
     send.__doc__ = Server.send.__doc__
 
-    def receive_text(self, standard='utf-8', **kwargs):
+    def receive_text(self, standard="utf-8", **kwargs):
         """
         Calls
         :py:meth:`TCPServer.receive
@@ -105,21 +110,22 @@ class TCPServer(Driver):
         received = None
         timeout_info = TimeoutExceptionInfo()
         try:
-            receive_kwargs = dict(conn_idx=conn_idx,
-                                  timeout=timeout or 0)
+            receive_kwargs = dict(conn_idx=conn_idx, timeout=timeout or 0)
             if size is None:
-                receive_kwargs['size'] = 1024
-                receive_kwargs['wait_full_size'] = False
+                receive_kwargs["size"] = 1024
+                receive_kwargs["wait_full_size"] = False
             else:
-                receive_kwargs['size'] = size
-                receive_kwargs['wait_full_size'] = True
+                receive_kwargs["size"] = size
+                receive_kwargs["wait_full_size"] = True
 
             received = self._server.receive(**receive_kwargs)
         except socket.timeout:
             if timeout is not None:
                 raise TimeoutException(
-                    'Timed out waiting for message on {0}. {1}'.format(
-                        self.cfg.name, timeout_info.msg()))
+                    "Timed out waiting for message on {0}. {1}".format(
+                        self.cfg.name, timeout_info.msg()
+                    )
+                )
         return received
 
     def starting(self):

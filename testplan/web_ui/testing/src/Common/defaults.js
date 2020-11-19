@@ -2,16 +2,25 @@
  * Constants used across the entire application.
  */
 const GREEN = '#228F1D';
+const DARK_GREEN = '#1A721D';
 const RED = '#A2000C';
+const DARK_RED = '#840008';
+const ORANGE = '#FFA500';
+const DARK_ORANGE = '#DD8800';
 const LIGHT_GREY = '#F3F3F3';
 const MEDIUM_GREY = '#D0D0D0';
 const DARK_GREY = '#ADADAD';
+const BLACK = '#404040';
 
-const COLUMN_WIDTH = 18;
+export const BOTTOMMOST_ENTRY_CATEGORY = 'testcase';
+const COLUMN_WIDTH = 22;  // unit: em
+const MIN_COLUMN_WIDTH = 180;  // unit: px
+const INTERACTIVE_COL_WIDTH = 28;  // wider to fit interactive buttons
 
 const INDENT_MULTIPLIER = 1.5;
 
 const TOOLBAR_BUTTONS_BATCH = [
+  {name: 'cl', type: 'clock'},
   {name: 'pr', type: 'print'},
   {name: 'if', type: 'info-circle'},
   {name: 'qu', type: 'question-circle'},
@@ -40,10 +49,10 @@ const CATEGORIES = {
   'unittest': 'test',
   'boost-test': 'test',
   'qunit': 'test',
-  'suite': 'suite',
-  'cppunit-suite': 'suite',
-  'boost-test-suite': 'suite',
-  'gtest-suite': 'suite',
+  'testsuite': 'testsuite',
+  'cppunit-suite': 'testsuite',
+  'boost-test-suite': 'testsuite',
+  'gtest-suite': 'testsuite',
   'parametrization': 'parametrization',
   'testcase': 'testcase'
 };
@@ -57,7 +66,7 @@ const CATEGORY_ICONS = {
   'unittest': 'UT',
   'boost-test': 'BT',
   'qunit': 'QU',
-  'suite': 'S',
+  'testsuite': 'S',
   'cppunit-suite': 'CS',
   'boost-test-suite': 'BS',
   'gtest-suite': 'GS',
@@ -73,15 +82,45 @@ const ENTRY_TYPES = [
   'cppunit',
   'qunit',
   'unittest',
-  'suite',
+  'testsuite',
   'parametrization',
   'testcase',
 ];
 
 const STATUS = [
-  'passed',
+  'error',
   'failed',
+  'passed',
+  'unstable',
+  'unknown',
+  'incomplete',
+  'skipped',
+  'xfail',
+  'xpass',
+  'xpass-strict',
+  'unstable',
+  'unknown',
 ];
+
+const STATUS_CATEGORY = {
+  'error': 'error',
+  'failed': 'failed',
+  'incomplete': 'failed',
+  'passed': 'passed',
+  'skipped': 'unstable',
+  'xfail': 'unstable',
+  'xpass': 'unstable',
+  'xpass-strict': 'unstable',
+  'unstable': 'unstable',
+  'unknown': 'unknown',
+};
+
+const RUNTIME_STATUS = [
+  'ready',
+  'running',
+  'finished',
+];
+
 
 const NAV_ENTRY_DISPLAY_DATA = [
   'name',
@@ -89,20 +128,26 @@ const NAV_ENTRY_DISPLAY_DATA = [
   'type',
   'category',
   'status',
-  'case_count'
+  'runtime_status',
+  'counter',
+  'tags',
+  'parent_uids',
+  'logs',
 ];
 
 const BASIC_ASSERTION_TYPES = [
   'Log',
-  'Equal', 'NotEqual', 'Greater', 'GreaterEqual', 'Less', 'LessEqual', 
+  'Equal', 'NotEqual', 'Greater', 'GreaterEqual', 'Less', 'LessEqual',
   'IsClose', 'IsTrue', 'IsFalse',
   'Fail', 'Contain', 'NotContain', 'LineDiff',
   'ExceptionRaised', 'ExceptionNotRaised',
-  'RegexMatch', 'RegexMatchNotExists', 'RegexSearch', 'RegexSearchNotExists', 
+  'RegexMatch', 'RegexMatchNotExists', 'RegexSearch', 'RegexSearchNotExists',
   'RegexFindIter', 'RegexMatchLine',
   'XMLCheck',
   'EqualSlices', 'EqualExcludeSlices',
   'DictCheck', 'FixCheck',
+  'Attachment', 'MatPlot',
+  'RawAssertion',
 ];
 
 const SORT_TYPES = {
@@ -121,13 +166,28 @@ const DICT_GRID_STYLE = {
   BOTTOM_PADDING: 18, // 16 + 2(border 2px)
 };
 
+// Interval to poll for report updates over. We may want to reduce this to make
+// the UI update more quickly.
+//
+// NOTE: currently we poll for updates using HTTP for simplicity but in future
+// it might be better to use websockets or SSEs to allow the backend to notify
+// us when updates are available.
+const POLL_MS = 1000;
+
 export {
   GREEN,
+  DARK_GREEN,
   RED,
+  DARK_RED,
+  ORANGE,
+  DARK_ORANGE,
   LIGHT_GREY,
   MEDIUM_GREY,
   DARK_GREY,
+  BLACK,
   COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+  INTERACTIVE_COL_WIDTH,
   INDENT_MULTIPLIER,
   TOOLBAR_BUTTONS_BATCH,
   TOOLBAR_BUTTONS_INTERACTIVE,
@@ -135,8 +195,11 @@ export {
   CATEGORY_ICONS,
   ENTRY_TYPES,
   STATUS,
+  STATUS_CATEGORY,
+  RUNTIME_STATUS,
   NAV_ENTRY_DISPLAY_DATA,
   BASIC_ASSERTION_TYPES,
   SORT_TYPES,
   DICT_GRID_STYLE,
+  POLL_MS,
 };

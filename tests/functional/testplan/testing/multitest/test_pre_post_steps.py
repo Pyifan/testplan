@@ -1,24 +1,34 @@
+import os
 from testplan.testing.multitest import MultiTest, testsuite, testcase
-from testplan.testing.multitest.base import Categories
 
-from testplan import Testplan
 from testplan.common.utils.testing import (
-    check_report, log_propagation_disabled
+    check_report,
+    log_propagation_disabled,
 )
-from testplan.report.testing import TestReport, TestGroupReport, TestCaseReport
+from testplan.report import (
+    TestReport,
+    TestGroupReport,
+    TestCaseReport,
+    ReportCategories,
+)
 from testplan.common.utils.logger import TESTPLAN_LOGGER
+
+
+CURRENT_FILE = os.path.abspath(__file__)
 
 
 @testsuite
 class MySuite(object):
-
     @testcase
     def test_one(self, env, result):
         pass
 
+    def teardown(self, env, result):
+        result.attach(os.__file__, description="attache file in teardown")
+
 
 def check_func_1(env, result):
-    result.equal(1, 1, description='sample assertion')
+    result.equal(1, 1, description="sample assertion")
 
 
 def check_func_2(env):
@@ -30,66 +40,67 @@ def check_func_3(env):
 
 
 def check_func_4(env, result):
-    result.equal(1, 2, description='failing assertion')
+    result.equal(1, 2, description="failing assertion")
+    result.attach(CURRENT_FILE, description="current file")
 
 
 expected_report = TestReport(
-    name='plan',
+    name="plan",
     entries=[
         TestGroupReport(
-            name='MyMultitest',
-            category=Categories.MULTITEST,
+            name="MyMultitest",
+            category=ReportCategories.MULTITEST,
             entries=[
                 TestGroupReport(
-                    name='MySuite',
-                    category=Categories.SUITE,
+                    name="MySuite",
+                    category=ReportCategories.TESTSUITE,
                     entries=[
-                        TestCaseReport(name='test_one')
-                    ]
+                        TestCaseReport(name="test_one"),
+                        TestCaseReport(
+                            name="teardown", entries=[{"type": "Attachment"}]
+                        ),
+                    ],
                 ),
                 TestGroupReport(
-                    name='Pre/Post Step Checks',
-                    category=Categories.SUITE,
+                    name="Pre/Post Step Checks",
+                    category=ReportCategories.TESTSUITE,
                     entries=[
                         TestCaseReport(
-                            name='before_start - check_func_1',
-                            entries=[{
-                                'type': 'Equal',
-                                'passed': True,
-                            }]
+                            name="before_start - check_func_1",
+                            entries=[{"type": "Equal", "passed": True}],
                         ),
-                        TestCaseReport(name='after_start - check_func_2'),
-                        TestCaseReport(name='before_stop - check_func_3'),
+                        TestCaseReport(name="after_start - check_func_2"),
+                        TestCaseReport(name="before_stop - check_func_3"),
                         TestCaseReport(
-                            name='after_stop - check_func_4',
-                            entries=[{
-                                'type': 'Equal',
-                                'passed': False
-                            }]
+                            name="after_stop - check_func_4",
+                            entries=[
+                                {"type": "Equal", "passed": False},
+                                {"type": "Attachment"},
+                            ],
                         ),
-                    ]
-                )
-            ]
+                    ],
+                ),
+            ],
         )
-    ]
+    ],
 )
 
 
-def test_pre_post_steps():
+def test_pre_post_steps(mockplan):
 
     multitest = MultiTest(
-        name='MyMultitest',
+        name="MyMultitest",
         suites=[MySuite()],
         before_start=check_func_1,
         after_start=check_func_2,
         before_stop=check_func_3,
-        after_stop=check_func_4
+        after_stop=check_func_4,
     )
 
-    plan = Testplan(name='plan', parse_cmdline=False)
-    plan.add(multitest)
+    mockplan.add(multitest)
 
     with log_propagation_disabled(TESTPLAN_LOGGER):
-        plan.run()
+        mockplan.run()
 
-    check_report(expected_report, plan.report)
+    check_report(expected_report, mockplan.report)
+    assert len(mockplan.report.attachments) == 2

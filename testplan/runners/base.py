@@ -28,6 +28,7 @@ class Executor(Resource):
     """
 
     CONFIG = ExecutorConfig
+    _STOP_TIMEOUT = 10
 
     def __init__(self, **options):
         super(Executor, self).__init__(**options)
@@ -61,6 +62,8 @@ class Executor(Resource):
         """
         if self.active:
             self._input[uid] = item
+            # `NoRunpathPool` adds item after calling `_prepopulate_runnables`
+            # so the following step is still needed
             self.ongoing.append(uid)
 
     def get(self, uid):
@@ -86,7 +89,7 @@ class Executor(Resource):
     def stopping(self):
         """Stop the executor."""
         if self._loop_handler:
-            interruptible_join(self._loop_handler)
+            interruptible_join(self._loop_handler, timeout=self._STOP_TIMEOUT)
 
     def abort_dependencies(self):
         """Abort items running before aborting self."""

@@ -4,6 +4,8 @@ import {Card, CardBody, Collapse} from 'reactstrap';
 import {css, StyleSheet} from 'aphrodite';
 
 import BasicAssertion from './AssertionTypes/BasicAssertion';
+import MarkdownAssertion from './AssertionTypes/MarkdownAssertion';
+import CodeLogAssertion from './AssertionTypes/CodeLogAssertion';
 import TableLogAssertion
   from './AssertionTypes/TableAssertions/TableLogAssertion';
 import TableMatchAssertion
@@ -20,6 +22,15 @@ import NotImplementedAssertion from './AssertionTypes/NotImplementedAssertion';
 import AssertionHeader from './AssertionHeader';
 import AssertionGroup from './AssertionGroup';
 import {BASIC_ASSERTION_TYPES} from '../Common/defaults';
+import XYGraphAssertion
+  from './AssertionTypes/GraphAssertions/XYGraphAssertion';
+import DiscreteChartAssertion
+  from './AssertionTypes/GraphAssertions/DiscreteChartAssertion';
+import SummaryBaseAssertion from './AssertionSummary';
+import {
+  AttachmentAssertion,
+  MatplotAssertion
+} from './AssertionTypes/AttachmentAssertions.js';
 
 /**
  * Component to render one assertion.
@@ -29,15 +40,32 @@ class Assertion extends Component {
     super(props);
 
     this.toggleAssertion = this.toggleAssertion.bind(this);
-    this.state = {isOpen: this.props.assertion.passed === false};
+    this.state = {
+      isOpen: this.props.assertion.passed === false,
+    };
   }
 
   shouldComponentUpdate(nextProps, nextState) {
+    const timeInfoIsEqual = (arr1, arr2) => {
+      if (arr1 === undefined && arr2 === undefined) {
+        return true;
+      } else if (arr1 !== undefined && arr2 !== undefined &&
+                 arr1.length === arr2.length) {
+        return true;
+      } else {
+        return false;
+      }
+    };
+
     // If we used a PureComponent it would do a shallow prop comparison which
     // might suffice and we wouldn't need to include this.
     return (nextProps.assertion !== this.props.assertion) ||
       (nextProps.globalIsOpen !== this.props.globalIsOpen) ||
-      (nextState.isOpen !== this.state.isOpen);
+      (nextState.isOpen !== this.state.isOpen) ||
+      // Inside the group assertions may need to be updated
+      (nextProps.assertion.type === 'Group') ||
+      !timeInfoIsEqual(
+        nextProps.assertion.timeInfoArray, this.props.timeInfoArray);
   }
 
   /**
@@ -77,6 +105,13 @@ class Assertion extends Component {
    * @public
    */
   assertionComponent(assertionType) {
+    let graphAssertion;
+    if (this.props.assertion.discrete_chart) {
+      graphAssertion = DiscreteChartAssertion;
+    } else {
+      graphAssertion = XYGraphAssertion;
+    }
+
     const assertionMap = {
       TableLog: TableLogAssertion,
       TableMatch: TableMatchAssertion,
@@ -86,6 +121,11 @@ class Assertion extends Component {
       DictMatch: DictMatchAssertion,
       FixLog: FixLogAssertion,
       FixMatch: FixMatchAssertion,
+      Graph: graphAssertion,
+      Attachment: AttachmentAssertion,
+      MatPlot: MatplotAssertion,
+      Markdown: MarkdownAssertion,
+      CodeLog: CodeLogAssertion,
     };
     if (assertionMap[assertionType]) {
       return assertionMap[assertionType];
@@ -96,23 +136,43 @@ class Assertion extends Component {
   }
 
   render() {
-    const isAssertionGroup = this.props.assertion.type === 'Group';
-    let assertionType;
-
-    if (isAssertionGroup) {
-      assertionType = <AssertionGroup
-        entries={this.props.assertion.entries}
-        globalIsOpen={this.props.globalIsOpen}
-        resetGlobalIsOpen={this.props.resetGlobalIsOpen}
-      />;
-    } else {
-      let AssertionTypeComponent = this.assertionComponent(
-        this.props.assertion.type);
-      if (AssertionTypeComponent) {
-        assertionType = 
-          <AssertionTypeComponent assertion={this.props.assertion} />;
-      } else {
-        assertionType = <NotImplementedAssertion />;
+    let isAssertionGroup = false;
+    let assertionType = this.props.assertion.type;
+    switch (assertionType) {
+      case 'Group':
+        isAssertionGroup = true;
+        assertionType = (
+          <AssertionGroup
+            entries={this.props.assertion.entries}
+            globalIsOpen={this.props.globalIsOpen}
+            resetGlobalIsOpen={this.props.resetGlobalIsOpen}
+            filter={this.props.filter}
+            reportUid={this.props.reportUid}
+          />
+        );
+        break;
+      case 'Summary':
+        assertionType = (
+          <SummaryBaseAssertion
+            assertion={this.props.assertion}
+            globalIsOpen={this.props.globalIsOpen}
+            resetGlobalIsOpen={this.props.resetGlobalIsOpen}
+            filter={this.props.filter}
+          />
+        );
+        break;
+      default: {
+        const AssertionTypeComponent = this.assertionComponent(assertionType);
+        if (AssertionTypeComponent) {
+          assertionType = (
+            <AssertionTypeComponent
+              assertion={this.props.assertion}
+              reportUid={this.props.reportUid}
+            />
+          );
+        } else {
+          assertionType = <NotImplementedAssertion />;
+        }
       }
     }
 
@@ -133,7 +193,8 @@ class Assertion extends Component {
               css(
                 isAssertionGroup
                   ? styles.groupCardBody
-                  : styles.assertionCardBody)
+                  : styles.assertionCardBody
+              )
             }
           >
             {assertionType}
@@ -149,11 +210,15 @@ Assertion.propTypes = {
   assertion: PropTypes.object,
   /** State of the expand all/collapse all functionality */
   globalIsOpen: PropTypes.bool,
-  /** Function to reset the expand all/collapse all state if an individual 
+  /** Function to reset the expand all/collapse all state if an individual
    * assertion's visibility is changed */
   resetGlobalIsOpen: PropTypes.func,
   /** Index of the assertion */
   index: PropTypes.number,
+  /** Assertion filter */
+  filter: PropTypes.string,
+  /** Report Uid */
+  reportUid: PropTypes.string,
 };
 
 const styles = StyleSheet.create({

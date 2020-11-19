@@ -4,16 +4,18 @@ import {css, StyleSheet} from 'aphrodite';
 import {library} from '@fortawesome/fontawesome-svg-core';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import {
-  faMinusSquare,
-  faPlusSquare,
+  faMinusCircle,
+  faPlusCircle,
 } from '@fortawesome/free-solid-svg-icons';
 
+import DescriptionPane from './DescriptionPane';
 import InfiniteScroll from './InfiniteScroll';
 import AssertionGroup from "./AssertionGroup";
+import LogGroup from './LogGroup';
 
 library.add(
-  faPlusSquare,
-  faMinusSquare
+  faPlusCircle,
+  faMinusCircle
 );
 
 /**
@@ -56,18 +58,18 @@ class AssertionPane extends Component {
 
   /**
    * Set the state on props change. This is needed to recognize that a different
-   * test case is being rendered. The state of the expand all/collapse all 
+   * test case is being rendered. The state of the expand all/collapse all
    * variable is also reset.
    *
    * @param {object} props - Current props.
    * @param {object} state - Previous state.
-   * @returns {object|null} - Return the new state if the test case changed or 
+   * @returns {object|null} - Return the new state if the test case changed or
    * null otherwise.
    * @public
    */
   static getDerivedStateFromProps(props, state) {
     if (
-      props.testcaseUid === undefined 
+      props.testcaseUid === undefined
       || props.testcaseUid !== state.testcaseUid
     ) {
       return {testcaseUid: props.testcaseUid, globalIsOpen: undefined};
@@ -78,31 +80,19 @@ class AssertionPane extends Component {
   render() {
     let assertionPaneStyle = {
       position: 'absolute',
-      left: `${this.props.left}em`,
-      top: '5em',
-      height: `calc(100% - 5em)`,
-      width: `calc(100% - ${this.props.left}em)`,
+      left: this.props.left,
+      paddingLeft: '20px',
+      top: '5.5em',
+      height: `calc(100% - 5.5em)`,
+      width: `calc(100% - ${this.props.left})`,
     };
 
-    if (this.props.assertions.length !== 0) {
+    if (
+      this.props.assertions.length !== 0 || this.props.logs.length !== 0
+      || this.props.descriptionEntries.length !== 0
+    ) {
       return (
         <div style={assertionPaneStyle}>
-          <div className={css(styles.buttonsDiv)}>
-            <FontAwesomeIcon
-              size='2x'
-              key='faPlusSquare'
-              icon='plus-square'
-              onClick={this.expandAllAssertions}
-              className={css(styles.icon)}
-            />
-            <FontAwesomeIcon
-              size='2x'
-              key='faMinusSquare'
-              icon='minus-square'
-              onClick={this.collapseAllAssertions}
-              className={css(styles.icon)}
-            />
-          </div>
           <div className={css(styles.infiniteScrollDiv)}>
             {/*
             The key is passed to force InfiniteScroll to update when only the
@@ -115,10 +105,36 @@ class AssertionPane extends Component {
               key={this.props.testcaseUid}
               items={this.props.assertions}
             >
+              <DescriptionPane
+                descriptionEntries={this.props.descriptionEntries}
+              />
+           <div className={css(styles.buttonsDiv)}>
+            <FontAwesomeIcon
+              size='1x'
+              key='faPlusCircle'
+              icon='plus-circle'
+              title='Expand all'
+              onClick={this.expandAllAssertions}
+              className={css(styles.icon)}
+            />
+            <FontAwesomeIcon
+              size='1x'
+              key='faMinusCircle'
+              icon='minus-circle'
+              title='Collapse all'
+              onClick={this.collapseAllAssertions}
+              className={css(styles.icon)}
+            />
+          </div>
               <AssertionGroup
                 entries={[]}
                 globalIsOpen={this.state.globalIsOpen}
                 resetGlobalIsOpen={this.resetGlobalIsOpen}
+                filter={this.props.filter}
+                reportUid={this.props.reportUid}
+              />
+              <LogGroup 
+                logs={this.props.logs}
               />
             </InfiniteScroll>
           </div>
@@ -132,10 +148,18 @@ class AssertionPane extends Component {
 AssertionPane.propTypes = {
   /** List of assertions to be rendered */
   assertions: PropTypes.arrayOf(PropTypes.object),
+  /** List of error log to be rendered */
+  logs: PropTypes.arrayOf(PropTypes.object),
   /** Unique identifier of the test case */
   testcaseUid: PropTypes.string,
   /** Left positional value */
-  left: PropTypes.number,
+  left: PropTypes.string,
+  /** Assertion filter */
+  filter: PropTypes.string,
+  /** Report UID */
+  reportUid: PropTypes.string,
+  /** Selected entries' description list to be displayed */
+  descriptionEntries: PropTypes.arrayOf(PropTypes.string),
 };
 
 const styles = StyleSheet.create({
@@ -144,13 +168,16 @@ const styles = StyleSheet.create({
     cursor: 'pointer',
   },
 
-  buttonsDiv: {
-    textAlign: 'right',
+  infiniteScrollDiv: {
+    height: 'calc(100% - 1.5em)',
   },
 
-  infiniteScrollDiv: {
-    height: 'calc(100% - 35px)',
-  }
+  buttonsDiv: {
+    position: 'absolute',
+    top: '0em',
+    width: '100%',
+    textAlign: 'right',
+  },
 });
 
 export default AssertionPane;

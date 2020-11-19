@@ -11,12 +11,15 @@ library.add(
   faCaretSquareUp
 );
 
+const BOTTOM_DISTANCE_TRESHOLD = 5;
+
 /**
  * A scrollable container that after rendering an initial amount of items will
  * only render the rest of them (in chunks) if they are required, or in this
  * case, when the user scrolls to the bottom of the container.
  */
-class InfiniteScroll extends Component {
+class InfiniteScroll extends Component {  
+
   constructor(props) {
     super(props);
 
@@ -41,7 +44,9 @@ class InfiniteScroll extends Component {
    * @public
    */
   static isContainerScrolledToTheBottom(el) {
-    return el.getScrollHeight() - el.getScrollTop() === el.getClientHeight();
+    const distanceFromBottom = el.getScrollHeight() - 
+                              (el.getScrollTop() + el.getClientHeight());
+    return  distanceFromBottom < BOTTOM_DISTANCE_TRESHOLD;
   }
 
   /**
@@ -99,7 +104,7 @@ class InfiniteScroll extends Component {
 
     return (
       <Scrollbars autoHide onScroll={this.onScroll} ref={this.scrollbars}>
-        <div style={{paddingRight: '2rem'}}>
+        <div style={{paddingRight: '4rem'}}>
           {children}
           {isLoading && <div>Loading...</div>}
         </div>

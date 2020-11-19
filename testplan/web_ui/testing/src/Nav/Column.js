@@ -1,54 +1,69 @@
-import React, {Component, Fragment} from 'react';
-import PropTypes from 'prop-types';
+import React, {Component} from 'react';
 import {StyleSheet, css} from 'aphrodite';
 
-import {LIGHT_GREY, COLUMN_WIDTH} from "../Common/defaults";
+import {LIGHT_GREY, MIN_COLUMN_WIDTH} from "../Common/defaults";
 
 /**
- * Vertical column with draggable right side.
+ * Vertical column for navigation bar.
  */
+
 class Column extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      width: COLUMN_WIDTH,
-    };
+    this.mouseDown = this.mouseDown.bind(this);
+    this.mouseMove = this.mouseMove.bind(this);
+    this.mouseUp = this.mouseUp.bind(this);
   }
 
-  /**
-   * Placeholder to handle column's right side being dragged to new width
-   */
-  handleDrag() {
-    const width = COLUMN_WIDTH;
-    if (this.props.setWidth !== undefined) {
-      this.props.setWidth(width);
+  mouseDown(e) {
+    document.addEventListener('mousemove', this.mouseMove, false);
+    document.addEventListener('mouseup', this.mouseUp, false);
+  }
+
+  mouseMove(e) {
+    let event = e || window.event ;
+    event.stopPropagation();
+    if (event.clientX < MIN_COLUMN_WIDTH) {
+      return;
+    } else {
+      this.props.handleColumnResizing(`${event.clientX}px`);
     }
-    this.setState({width: width});
+  }
+
+  mouseUp(e) {
+    document.removeEventListener('mousemove', this.mouseMove);
+	document.removeEventListener('mouseup', this.mouseUp);
   }
 
   render() {
-    const navStyle = {width: `${this.state.width}em`};
-    const gripStyle = {left: `${this.state.width}em`};
+    const columnStyles = StyleSheet.create({
+      leftColumn: {
+        width: this.props.width,
+      },
+      rightColumn: {
+        left: this.props.width,
+        width: '3px',
+        backgroundColor: 'transparent',
+        boxShadow: 'none',
+        cursor: 'w-resize',
+      },
+    });
+
     return (
-      <Fragment>
-        <div className={css(styles.column)} style={navStyle}>
+      <>
+        <div className={css(styles.column, columnStyles.leftColumn)}>
           {this.props.children}
         </div>
-        <div className={css(styles.grip)} style={gripStyle}/>
-      </Fragment>
+        <div
+          className={css(styles.column, columnStyles.rightColumn)}
+          onMouseDown={this.mouseDown}
+        >
+          <div className={css(styles.column, styles.splitter)} />
+        </div>
+      </>
     );
   }
 }
-
-Column.propTypes = {
-  /** Function to pass this column's width to a higher order component */
-  setWidth: PropTypes.func,
-  /** Contents of the column */
-  children: PropTypes.oneOfType([
-    PropTypes.arrayOf(PropTypes.node),
-    PropTypes.node,
-  ]),
-};
 
 const styles = StyleSheet.create({
   column: {
@@ -60,15 +75,15 @@ const styles = StyleSheet.create({
       '0px 2px 10px 0px rgba(0, 0, 0, 0.16)',
     display: 'inline-block',
     top: '4.5em',
+    'padding-bottom': '4.5em',
     zIndex: 200,
   },
-  grip: {
-    cursor: 'col-resize',
-    position: 'absolute',
-    width: '0.3em',
-    height: '100%',
-    zIndex: '50000',
-    backgroundColor: 'transparent',
+  splitter: {
+    top: '0',
+    left: '1px',
+    width: '1px',
+    cursor: 'w-resize',
+    zIndex: 300,
   },
 });
 

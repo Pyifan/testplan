@@ -1,55 +1,66 @@
-from testplan.report.testing import TestReport, TestGroupReport, TestCaseReport
+from testplan.report import TestReport, TestGroupReport, TestCaseReport
 
 expected_report = TestReport(
-    name='plan',
+    name="plan",
     entries=[
         TestGroupReport(
-            name='MyGTest',
-            category='gtest',
+            name="MyGTest",
+            category="gtest",
             entries=[
                 TestGroupReport(
-                    name='SquareRootTest',
-                    category='suite',
+                    name="SquareRootTest",
+                    category="testsuite",
                     entries=[
                         TestCaseReport(
-                            name='PositiveNos',
+                            name="PositiveNos",
                             entries=[
-                                {
-                                    'type': 'RawAssertion',
-                                    'passed': False,
-                                },
-                            ]
+                                {"type": "RawAssertion", "passed": False}
+                            ],
                         ),
                         TestCaseReport(
-                            name='NegativeNos',
-                            entries=[],
+                            name="NegativeNos",
+                            entries=[{"type": "RawAssertion", "passed": True}],
                         ),
-                    ]
+                    ],
                 ),
                 TestGroupReport(
-                    name='SquareRootTestNonFatal',
-                    category='suite',
+                    name="SquareRootTestNonFatal",
+                    category="testsuite",
                     entries=[
                         TestCaseReport(
-                            name='PositiveNos',
+                            name="PositiveNos",
                             entries=[
-                                {
-                                    'type': 'RawAssertion',
-                                    'passed': False,
-                                },
-                                {
-                                    'type': 'RawAssertion',
-                                    'passed': False,
-                                },
-                            ]
+                                {"type": "RawAssertion", "passed": False},
+                                {"type": "RawAssertion", "passed": False},
+                            ],
                         ),
                         TestCaseReport(
-                            name='NegativeNos',
-                            entries=[]
+                            name="NegativeNos",
+                            entries=[{"type": "RawAssertion", "passed": True}],
                         ),
-                    ]
+                    ],
                 ),
-            ]
-        ),
-    ]
+                TestGroupReport(
+                    name="ProcessChecks",
+                    category="testsuite",
+                    entries=[
+                        TestCaseReport(
+                            name="ExitCodeCheck",
+                            entries=[
+                                {"type": "RawAssertion", "passed": False},
+                                {
+                                    "type": "Log",
+                                    "description": "Process stdout",
+                                },
+                                {
+                                    "type": "Log",
+                                    "description": "Process stderr",
+                                },
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+    ],
 )

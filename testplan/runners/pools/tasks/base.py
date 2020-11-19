@@ -4,8 +4,12 @@ import sys
 import six
 import uuid
 import inspect
+import warnings
 import importlib
+from collections import OrderedDict
+
 from six.moves import cPickle
+import copy
 
 
 class TaskMaterializationError(Exception):
@@ -57,25 +61,54 @@ class Task(object):
     :type kwargs: ``kwargs``
     :param uid: Task uid.
     :type uid: ``str``
-
+    :param rerun: Rerun the task up to user specified times unless it passes,
+        by default 0 (no rerun). To enable task rerun feature, this value can
+        be at most 3.
+    :type rerun: ``int``
     """
 
-    def __init__(self, target=None, module=None, path=None,
-                 args=None, kwargs=None, uid=None):
+    MAX_RERUN_LIMIT = 3
+
+    def __init__(
+        self,
+        target=None,
+        module=None,
+        path=None,
+        args=None,
+        kwargs=None,
+        uid=None,
+        rerun=0,
+    ):
         self._target = target
+        self._module = module
         self._path = path
         self._args = args or tuple()
         self._kwargs = kwargs or dict()
-        self._module = module
         self._uid = uid or str(uuid.uuid4())
+        self._max_rerun_limit = (
+            self.MAX_RERUN_LIMIT
+            if rerun > self.MAX_RERUN_LIMIT
+            else int(rerun)
+        )
+        self._assign_for_rerun = 0
+        self._executors = OrderedDict()
+
+        if self._max_rerun_limit < 0:
+            raise ValueError("Value of `rerun` cannot be negative.")
+        elif self._max_rerun_limit > self.MAX_RERUN_LIMIT:
+            warnings.warn(
+                "Value of `rerun` cannot exceed {}".format(
+                    self.MAX_RERUN_LIMIT
+                )
+            )
+            self._max_rerun_limit = self.MAX_RERUN_LIMIT
 
     def __str__(self):
-        return '{}[{}]'.format(self.__class__.__name__, self._uid)
+        return "{}[{}]".format(self.__class__.__name__, self._uid)
 
     @property
     def all_attrs(self):
-        return ('_target', '_path', '_args',
-                '_kwargs', '_module', '_uid')
+        return ("_target", "_path", "_args", "_kwargs", "_module", "_uid")
 
     def uid(self):
         """Task string uid."""
@@ -91,7 +124,7 @@ class Task(object):
                 name = self._target
         else:
             name = self._target
-        return 'Task[{}]'.format(name)
+        return "Task[{}]".format(name)
 
     @property
     def args(self):
@@ -103,26 +136,63 @@ class Task(object):
         """Task target kwargs."""
         return self._kwargs
 
+    @property
+    def module(self):
+        """Task target module."""
+        if callable(self._target):
+            return self._target.__module__
+        else:
+            return self._module
+
+    @property
+    def rerun(self):
+        """how many times the task is allowed to rerun."""
+        return self._max_rerun_limit
+
+    @property
+    def reassign_cnt(self):
+        """how many times the task is reassigned for rerun."""
+        return self._assign_for_rerun
+
+    @reassign_cnt.setter
+    def reassign_cnt(self, value):
+        if value < 0:
+            raise ValueError("Value of `reassign_cnt` cannot be negative")
+        elif value > self.MAX_RERUN_LIMIT:
+            raise ValueError(
+                "Value of `reassign_cnt` cannot exceed {}".format(
+                    self.MAX_RERUN_LIMIT
+                )
+            )
+        self._assign_for_rerun = value
+
+    @property
+    def executors(self):
+        """Executors to which the task had been assigned."""
+        return self._executors
+
     def materialize(self, target=None):
         """
         Create the actual task target executable/runnable/callable object.
         """
-        target = target or self._target
+        target = target or copy.deepcopy(self._target)
         if not isinstance(target, six.string_types):
             try:
-                run_method = getattr(target, 'run')
+                run_method = getattr(target, "run")
                 if not inspect.ismethod(run_method):
                     raise AttributeError
             except AttributeError:
                 if callable(target):
-                    return self.materialize(target(*self._args,
-                                                   **self._kwargs))
+                    return self.materialize(
+                        target(*self._args, **self._kwargs)
+                    )
                 try:
                     name = target.__class__.__name__
                 except:
                     name = target
-                raise RuntimeError(('Task {} must have a '
-                                    '.run() method.').format(name))
+                raise RuntimeError(
+                    ("Task {} must have a " ".run() method.").format(name)
+                )
             else:
                 return target
         else:
@@ -135,16 +205,18 @@ class Task(object):
             sys.path.insert(0, self._path)
             path_inserted = True
 
-        elements = self._target.split('.')
+        elements = self._target.split(".")
         target_src = elements.pop(-1)
         try:
             if len(elements):
-                mod = importlib.import_module('.'.join(elements))
+                mod = importlib.import_module(".".join(elements))
                 target = getattr(mod, target_src)
             else:
                 if self._module is None:
-                    msg = 'Task parameters are not sufficient '\
-                          'for target {} materialization'.format(self._target)
+                    msg = (
+                        "Task parameters are not sufficient "
+                        "for target {} materialization".format(self._target)
+                    )
                     raise TaskMaterializationError(msg)
                 mod = importlib.import_module(self._module)
                 target = getattr(mod, self._target)
@@ -185,8 +257,9 @@ class TaskResult(object):
     May contain follow up tasks.
     """
 
-    def __init__(self, task=None, result=None, status=False, reason=None,
-                 follow=None):
+    def __init__(
+        self, task=None, result=None, status=False, reason=None, follow=None
+    ):
         self._task = task
         self._result = result
         self._status = status
@@ -225,8 +298,7 @@ class TaskResult(object):
 
     @property
     def all_attrs(self):
-        return ('_task', '_status', '_reason',
-                '_result', '_follow', '_uid')
+        return ("_task", "_status", "_reason", "_result", "_follow", "_uid")
 
     def dumps(self, check_loadable=False):
         """Serialize a task result."""
@@ -252,13 +324,13 @@ class TaskResult(object):
         return self
 
     def __str__(self):
-        return 'TaskResult[{}, {}]'.format(self.status, self.reason)
+        return "TaskResult[{}, {}]".format(self.status, self.reason)
 
 
 class RunnableTaskAdaptor(object):
     """Minimal callable to runnable task adaptor."""
 
-    __slots__ = ('_target', '_args', '_kwargs')
+    __slots__ = ("_target", "_args", "_kwargs")
 
     def __init__(self, target, *args, **kwargs):
         self._target = target

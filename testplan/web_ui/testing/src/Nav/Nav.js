@@ -1,10 +1,9 @@
-import React, {Component, Fragment} from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 
 import NavBreadcrumbs from "./NavBreadcrumbs";
 import NavList from "./NavList";
-import {parseNavSelection} from "./navUtils";
-import {getNavEntryType} from "../Common/utils";
+import {GetSelectedUid, GetNavEntries, GetNavBreadcrumbs} from "./navUtils";
 
 /**
  * Nav component:
@@ -13,82 +12,49 @@ import {getNavEntryType} from "../Common/utils";
  *   * handle clicking through menus, tracking what has been selected.
  *   * auto select entries if the list is empty or has 1 entry.
  */
-class Nav extends Component {
-  constructor(props) {
-    super(props);
-    this.handleNavClick = this.handleNavClick.bind(this);
-    this.autoSelect = this.autoSelect.bind(this);
-    this.state = {
-      selected: []
-    };
-  }
+const Nav = (props) => {
+  const navEntries = GetNavEntries(props.selected);
+  const breadCrumbEntries = GetNavBreadcrumbs(props.selected);
 
-  /**
-   * Handle Nav entries being clicked. Add/remove entries from selected Array in
-   * state.
-   *
-   * @param {Object} e - click event.
-   * @param {Object} entry - Nav entry metadata.
-   * @param {number} depth - depth of Nav entry in Testplan report.
-   * @public
-   */
-  handleNavClick(e, entry, depth) {
-    e.stopPropagation();
-    const entryType = getNavEntryType(entry);
-    let selected = this.state.selected.slice(0, depth);
-    selected.push({uid: entry.uid, type: entryType});
-    this.setState({selected: selected});
-    this.props.saveAssertions(entry);
-  }
-
-  /**
-   * Auto select Nav entries depending on whether the passed entries Array is
-   * empty (go up a level) or has 1 entry (go down a level).
-   *
-   * @param {Array} entries - Nav entries (should be NavList entries).
-   * @param breadcrumbsLength - Number of the NavBreadcrumbs entries.
-   * @public
-   */
-  autoSelect(entries, breadcrumbsLength) {
-    let selected;
-    const lastSelectedType = this.state.selected.length > 0 ?
-      this.state.selected[this.state.selected.length - 1].type :
-      undefined;
-    if (entries.length === 0 && this.state.selected.length > 1) {
-      selected = this.state.selected.slice(0, breadcrumbsLength);
-    } else if (entries.length === 1 && lastSelectedType !== 'testcase') {
-      selected = this.state.selected.concat([{
-        uid: entries[0].uid,
-        type: getNavEntryType(entries[0])
-      }]);
-    }
-    if (selected !== undefined) {
-      this.setState({selected: selected});
-    }
-  }
-
-  render() {
-    const selection = parseNavSelection(this.props.report, this.state.selected);
-    return (
-      <Fragment>
-        <NavBreadcrumbs
-          entries={selection.navBreadcrumbs}
-          handleNavClick={this.handleNavClick} />
-        <NavList
-          entries={selection.navList}
-          breadcrumbLength={selection.navBreadcrumbs.length}
-          handleNavClick={this.handleNavClick}
-          autoSelect={this.autoSelect} />
-      </Fragment>
-    );
-  }
-}
+  return (
+    <>
+      <NavBreadcrumbs
+        entries={breadCrumbEntries}
+        handleNavClick={props.handleNavClick}
+      />
+      <NavList
+        width={props.navListWidth}
+        entries={navEntries}
+        breadcrumbLength={breadCrumbEntries.length}
+        handleNavClick={props.handleNavClick}
+        handleColumnResizing={props.handleColumnResizing}
+        filter={props.filter}
+        displayEmpty={props.displayEmpty}
+        displayTags={props.displayTags}
+        displayTime={props.displayTime}
+        selectedUid={GetSelectedUid(props.selected)}
+      />
+    </>
+  );
+};
 
 Nav.propTypes = {
   /** Testplan report */
-  report: PropTypes.arrayOf(PropTypes.object),
+  report: PropTypes.object,
+  /** Selected navigation entries. */
+  selected: PropTypes.arrayOf(PropTypes.object),
   /** Function to handle saving the assertions found by the Nav */
   saveAssertions: PropTypes.func,
+  /** Entity filter */
+  filter: PropTypes.string,
+  /** Flag to display tags on navbar */
+  displayTags: PropTypes.bool,
+  /** Flag to display execution time on navbar */
+  displayTime: PropTypes.bool,
+  /** Flag to display empty testcase on navbar */
+  displayEmpty: PropTypes.bool,
+  /** Callback when a navigation entry is clicked. */
+  handleNavClick: PropTypes.func,
 };
 
 export default Nav;

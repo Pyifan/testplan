@@ -3,37 +3,39 @@ Test Matplotlib Assertion - separate to ensure test is skippable on windows.
 """
 import re
 
-from testplan.report.testing import TestReport, TestGroupReport, TestCaseReport
-
-from testplan.testing.multitest.base import Categories
+from testplan.report import (
+    TestReport,
+    TestGroupReport,
+    TestCaseReport,
+    ReportCategories,
+)
 
 expected_report = TestReport(
-    name='plan',
+    name="plan",
     entries=[
         TestGroupReport(
-            name='MyMultitest',
-            category=Categories.MULTITEST,
+            name="MyMultitest",
+            category=ReportCategories.MULTITEST,
             entries=[
                 TestGroupReport(
-                    name='MySuite',
-                    category=Categories.SUITE,
+                    name="MySuite",
+                    category=ReportCategories.TESTSUITE,
                     entries=[
                         TestCaseReport(
-                            name='test_matplot',
+                            name="test_matplot",
                             entries=[
                                 {
-                                    'image_file_path': re.compile(
-                                        r'^.+\.png$'),
-                                    'width': 2.0,
-                                    'height': 2.0,
-                                    'type': 'MatPlot',
-                                    'description': 'My matplot'
+                                    "source_path": re.compile(r"^.+\.png$"),
+                                    "width": 2.0,
+                                    "height": 2.0,
+                                    "type": "MatPlot",
+                                    "description": "My matplot",
                                 }
-                            ]
+                            ],
                         )
-                    ]
+                    ],
                 )
-            ]
+            ],
         )
-    ]
+    ],
 )

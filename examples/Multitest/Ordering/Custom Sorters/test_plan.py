@@ -9,13 +9,11 @@ from testplan.testing.multitest import MultiTest, testsuite, testcase
 
 from testplan import test_plan
 from testplan.report.testing.styles import Style
-from testplan.testing.multitest.suite import get_testsuite_name
 from testplan.testing.ordering import NoopSorter, TypedSorter
 
 
 @testsuite
 class Alpha(object):
-
     @testcase
     def test_a(self, env, result):
         pass
@@ -27,7 +25,6 @@ class Alpha(object):
 
 @testsuite
 class Beta(object):
-
     @testcase
     def test_a(self, env, result):
         pass
@@ -43,7 +40,6 @@ class Beta(object):
 
 @testsuite
 class Epsilon(object):
-
     @testcase
     def test_a(self, env, result):
         pass
@@ -66,9 +62,8 @@ class ReverseNameLengthSorter(TypedSorter):
 
     def reverse_sort_by_name(self, items, name_getter):
         return sorted(
-            items,
-            reverse=True,
-            key=lambda item: len(name_getter(item)))
+            items, reverse=True, key=lambda item: len(name_getter(item))
+        )
 
     # We override sort functions for each sort case:
     # Multitests -> sort_instances
@@ -76,41 +71,43 @@ class ReverseNameLengthSorter(TypedSorter):
     # Test cases -> sort_testcases
     def sort_instances(self, instances):
         return self.reverse_sort_by_name(
-            instances, operator.attrgetter('name'))
+            instances, operator.attrgetter("name")
+        )
 
     def sort_testsuites(self, testsuites):
         return self.reverse_sort_by_name(
-            testsuites, get_testsuite_name)
+            testsuites, operator.attrgetter("name")
+        )
 
     def sort_testcases(self, testcases):
         return self.reverse_sort_by_name(
-            testcases, operator.attrgetter('__name__'))
+            testcases, operator.attrgetter("name")
+        )
 
 
 noop_sorter = NoopSorter()
 
-custom_sorter_1 = ReverseNameLengthSorter(sort_type='testcases')
+custom_sorter_1 = ReverseNameLengthSorter(sort_type="testcases")
 
-custom_sorter_2 = ReverseNameLengthSorter(
-    sort_type=('suites', 'testcases'))
+custom_sorter_2 = ReverseNameLengthSorter(sort_type=("suites", "testcases"))
 
 
 # Replace the `test_sorter` argument with the
 # custom sorters declared above to see how they work.
 @test_plan(
-    name='Custom Sorter Example',
+    name="Custom Sorter Example",
     test_sorter=noop_sorter,
     # Using testcase level stdout so we can see sorted testcases
-    stdout_style=Style('case', 'case')
+    stdout_style=Style("testcase", "testcase"),
 )
 def main(plan):
 
     multi_test_1 = MultiTest(
-        name='Primary',
-        suites=[Alpha(), Beta(), Epsilon()])
+        name="Primary", suites=[Alpha(), Beta(), Epsilon()]
+    )
 
     plan.add(multi_test_1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(not main())

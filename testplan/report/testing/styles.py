@@ -23,16 +23,17 @@ class StyleEnum(ArgMixin, Enum):
     """
     Incremental output levels, this will be used by
     `StyleFlag` class to set styling flags like:
-        display_result = True
-        display_multitest = False
+
+        * display_result = True
+        * display_multitest = False
 
     Note: Multiple inheritance seems to break with IntEnum.
     """
 
     RESULT = 0
     TEST = 1
-    SUITE = 2
-    CASE = 3
+    TESTSUITE = 2
+    TESTCASE = 3
     ASSERTION = 4
     ASSERTION_DETAIL = 5
 
@@ -48,23 +49,25 @@ class StyleFlag(object):
 
     Usage:
 
-        StyleFlag(StyleEnum.CASE)
+        StyleFlag(StyleEnum.TESTCASE)
 
     Alternative Usage:
 
-        StyleFlag('case')
+        StyleFlag('testcase')
 
     Produces:
 
         StyleFlag
-            display_result = True
-            display_test = True
-            display_suite = True
-            display_case = True
-            display_assertion = False
-            display_assertion_detail = False
+
+            * display_result = True
+            * display_test = True
+            * display_testsuite = True
+            * display_testcase = True
+            * display_assertion = False
+            * display_assertion_detail = False
     """
-    attrs = ['display_{}'.format(enm.name.lower()) for enm in StyleEnum]
+
+    attrs = ["display_{}".format(enm.name.lower()) for enm in StyleEnum]
 
     def __init__(self, level):
 
@@ -73,7 +76,7 @@ class StyleFlag(object):
         elif isinstance(level, Enum):
             self.label = StyleEnum.enum_to_str(level)
         else:
-            raise TypeError('Invalid type: {}'.format(type(level)))
+            raise TypeError("Invalid type: {}".format(type(level)))
 
         for enm, attr_name in zip(StyleEnum, self.attrs):
             setattr(self, attr_name, enm.value <= self.level.value)
@@ -91,13 +94,13 @@ class StyleFlag(object):
 
     def __str__(self):
         ret = [repr(self)] + [
-            '\t{}: {}'.format(attr, getattr(self, attr)) for attr in self.attrs]
+            "\t{}: {}".format(attr, getattr(self, attr)) for attr in self.attrs
+        ]
         return os.linesep.join(ret)
 
     def __eq__(self, other):
         return all(
-            getattr(self, attr) == getattr(other, attr)
-            for attr in self.attrs
+            getattr(self, attr) == getattr(other, attr) for attr in self.attrs
         )
 
     def __gt__(self, other):
@@ -110,17 +113,16 @@ class Style(object):
     2 StyleFlag objects for passing / failing test result rendering.
 
     e.g. Render passing multitests, but render
-        failing multitest & suite & testcases.
+    failing multitest & suite & testcases.
     """
+
     def __init__(self, passing, failing):
         self.passing = StyleFlag(passing)
         self.failing = StyleFlag(failing)
 
     def __repr__(self):
         return "{}(passing='{}', failing='{}')".format(
-            self.__class__.__name__,
-            self.passing.label,
-            self.failing.label,
+            self.__class__.__name__, self.passing.label, self.failing.label
         )
 
     def get_style(self, passing=True):
@@ -140,24 +142,16 @@ class StyleArg(ArgMixin, Enum):
     must be passed to related renderer programmatically.
     """
 
-    RESULT_ONLY = Style(
-        passing=StyleEnum.RESULT,
-        failing=StyleEnum.RESULT,
-    )
+    RESULT_ONLY = Style(passing=StyleEnum.RESULT, failing=StyleEnum.RESULT)
 
-    SUMMARY = Style(
-        passing=StyleEnum.TEST,
-        failing=StyleEnum.TEST,
-    )
+    SUMMARY = Style(passing=StyleEnum.TEST, failing=StyleEnum.TEST)
 
     EXTENDED_SUMMARY = Style(
-        passing=StyleEnum.CASE,
-        failing=StyleEnum.ASSERTION_DETAIL,
+        passing=StyleEnum.TESTCASE, failing=StyleEnum.ASSERTION_DETAIL
     )
 
     DETAILED = Style(
-        passing=StyleEnum.ASSERTION_DETAIL,
-        failing=StyleEnum.ASSERTION_DETAIL,
+        passing=StyleEnum.ASSERTION_DETAIL, failing=StyleEnum.ASSERTION_DETAIL
     )
 
     @classmethod
@@ -167,10 +161,10 @@ class StyleArg(ArgMixin, Enum):
         via --help command.
         """
         return {
-            cls.RESULT_ONLY: 'Display only root level pass/fail status.',
-            cls.SUMMARY: 'Display top level (e.g. multitest)'
-                         ' pass/fail status .',
-            cls.EXTENDED_SUMMARY: 'Display assertion details for failing tests,'
-                                  ' testcase level statuses for the rest.',
-            cls.DETAILED: 'Display details of all tests & assertions.'
+            cls.RESULT_ONLY: "Display only root level pass/fail status.",
+            cls.SUMMARY: "Display top level (e.g. multitest)"
+            " pass/fail status .",
+            cls.EXTENDED_SUMMARY: "Display assertion details for failing tests,"
+            " testcase level statuses for the rest.",
+            cls.DETAILED: "Display details of all tests & assertions.",
         }

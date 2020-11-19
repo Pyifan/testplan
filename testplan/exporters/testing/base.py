@@ -1,9 +1,8 @@
 import os
 from shutil import copyfile
 
-from schema import Schema, Use
+from schema import Use
 
-from testplan import defaults
 from testplan.common.config import ConfigOption
 from testplan.common.exporters import BaseExporter, ExporterConfig
 from testplan.common.utils.logger import TESTPLAN_LOGGER
@@ -16,14 +15,11 @@ class Exporter(BaseExporter):
 
 
 class TagFilteredExporterConfig(ExporterConfig):
-
     @classmethod
     def get_options(cls):
         return {
-            ConfigOption('report_tags', default=[],
-                block_propagation=False): [Use(tagging.validate_tag_value)],
-            ConfigOption('report_tags_all', default=[],
-                block_propagation=False): [Use(tagging.validate_tag_value)]
+            ConfigOption("report_tags"): [Use(tagging.validate_tag_value)],
+            ConfigOption("report_tags_all"): [Use(tagging.validate_tag_value)],
         }
 
 
@@ -37,8 +33,9 @@ class TagFilteredExporter(Exporter):
     run for each generated clone report, however if the clone report
     is empty the export operation will be skipped.
     """
-    ALL = 'all'
-    ANY = 'any'
+
+    ALL = "all"
+    ANY = "any"
 
     CONFIG = TagFilteredExporterConfig
     exporter_class = None
@@ -67,9 +64,12 @@ class TagFilteredExporter(Exporter):
         :return: Instance of `exporter_class`
         """
         if not self.exporter_class:
-            raise AttributeError('`exporter_class` not set.')
+            raise AttributeError("`exporter_class` not set.")
 
-        exporter = self.exporter_class(**params)  # pylint: disable=not-callable
+        # pylint: disable=not-callable
+        exporter = self.exporter_class(**params)
+        # pylint: enable=not-callable
+
         exporter.cfg.parent = self.cfg
         return exporter
 
@@ -90,10 +90,9 @@ class TagFilteredExporter(Exporter):
         """
         tag_label = tagging.tag_label(tag_dict)
         result = source.filter_by_tags(
-            tag_dict,
-            all_tags=filter_type == self.ALL
+            tag_dict, all_tags=filter_type == self.ALL
         )
-        result.meta['report_tags_{}'.format(filter_type)] = tag_label
+        result.meta["report_tags_{}".format(filter_type)] = tag_label
         return result
 
     def get_skip_message(self, source, tag_dict, filter_type):
@@ -108,11 +107,10 @@ class TagFilteredExporter(Exporter):
         :rtype: ``str``
         """
         return (
-            'Empty report for tags: `{tag_label}`, filter_type:'
-            ' `{filter_type}`, skipping export operation.'
+            "Empty report for tags: `{tag_label}`, filter_type:"
+            " `{filter_type}`, skipping export operation."
         ).format(
-            tag_label=tagging.tag_label(tag_dict),
-            filter_type=filter_type
+            tag_label=tagging.tag_label(tag_dict), filter_type=filter_type
         )
 
     def export_clones(self, source, tag_dicts, filter_type):
@@ -128,10 +126,11 @@ class TagFilteredExporter(Exporter):
         :type tag_dicts: ``list`` of ``dict``
         :param filter_type: all / any, will be used for tag filtering strategy.
         :type filter_type: ``str``
-        :return: None
+        :return: ``None``
+        :rtype: ``NoneType``
         """
         if filter_type not in [self.ALL, self.ANY]:
-            raise ValueError('Invalid filter type: {}'.format(filter_type))
+            raise ValueError("Invalid filter type: {}".format(filter_type))
 
         for tag_dict in tag_dicts:
             clone = self.get_filtered_source(source, tag_dict, filter_type)
@@ -145,7 +144,7 @@ class TagFilteredExporter(Exporter):
                     self.get_skip_message(
                         source=clone,
                         tag_dict=tag_dict,
-                        filter_type=filter_type
+                        filter_type=filter_type,
                     )
                 )
 
@@ -155,17 +154,19 @@ class TagFilteredExporter(Exporter):
 
         :param source: Test report.
         :type source: :py:class:`~testplan.report.testing.base.TestReport`
-        :return: None
+        :return: ``None``
+        :rtype: ``NoneType``
         """
         self.export_clones(
-            source=source,
-            tag_dicts=self.cfg.report_tags,
-            filter_type=self.ANY)
+            source=source, tag_dicts=self.cfg.report_tags, filter_type=self.ANY
+        )
 
         self.export_clones(
             source=source,
             tag_dicts=self.cfg.report_tags_all,
-            filter_type=self.ALL)
+            filter_type=self.ALL,
+        )
+
 
 def save_attachments(report, directory):
     """
@@ -175,7 +176,7 @@ def save_attachments(report, directory):
     :param directory: Directory to save attachments in.
     :type directory: ``str``
     """
-    attachments = getattr(report, 'attachments', None)
+    attachments = getattr(report, "attachments", None)
     if attachments:
         for dst, src in attachments.items():
             dst_path = os.path.join(directory, dst)

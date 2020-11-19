@@ -10,11 +10,13 @@ import {MEDIUM_GREY} from "./defaults";
 class Message extends Component {
   render() {
     const paneStyle = {
-      paddingLeft: `${this.props.left}em`, paddingTop: '4.5em'
+      paddingLeft: this.props.left,
+      paddingTop: '4.5em',
     };
+    const Tag = this.props.tag || 'h1';
     return (
       <div style={paneStyle}>
-        <h1 className={css(styles.message)}>{this.props.message}</h1>
+        <Tag className={css(styles.message)}>{this.props.message}</Tag>
       </div>
     );
   }
@@ -24,7 +26,7 @@ Message.propTypes = {
   /** Message to be displayed */
   message: PropTypes.string,
   /** How far left the container should be placed */
-  left: PropTypes.number,
+  left: PropTypes.string,
 };
 
 const styles = StyleSheet.create({

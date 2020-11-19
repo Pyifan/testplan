@@ -23,11 +23,12 @@ class ZMQClientConfig(DriverConfig):
         Schema for options validation and assignment of default values.
         """
         return {
-            'hosts': Or(*make_iterables([str, ContextValue])),
-            'ports': Or(*make_iterables([int, ContextValue])),
-            Optional('message_pattern', default=zmq.PAIR):
-                Or(zmq.PAIR, zmq.REQ, zmq.SUB, zmq.PULL),
-            Optional('connect_at_start', default=True): bool
+            "hosts": Or(*make_iterables([str, ContextValue])),
+            "ports": Or(*make_iterables([int, ContextValue])),
+            Optional("message_pattern", default=zmq.PAIR): Or(
+                zmq.PAIR, zmq.REQ, zmq.SUB, zmq.PULL
+            ),
+            Optional("connect_at_start", default=True): bool,
         }
 
 
@@ -35,6 +36,7 @@ class ZMQClient(Driver):
     """
     The ZMQClient can make multiple connections to different ZMQServers. The
     socket can be of type:
+
       * zmq.PAIR
       * zmq.REQ
       * zmq.SUB
@@ -59,7 +61,16 @@ class ZMQClient(Driver):
 
     CONFIG = ZMQClientConfig
 
-    def __init__(self, **options):
+    def __init__(
+        self,
+        name,
+        hosts,
+        ports,
+        message_pattern=zmq.PAIR,
+        connect_at_start=True,
+        **options
+    ):
+        options.update(self.filter_locals(locals()))
         super(ZMQClient, self).__init__(**options)
         self._hosts = []
         self._ports = []
@@ -83,8 +94,11 @@ class ZMQClient(Driver):
         for i, host in enumerate(self.cfg.hosts):
             self._hosts.append(expand(host, self.context))
             self._ports.append(expand(self.cfg.ports[i], self.context, int))
-            self._socket.connect('tcp://{host}:{port}'.format(
-                host=self._hosts[i], port=self._ports[i]))
+            self._socket.connect(
+                "tcp://{host}:{port}".format(
+                    host=self._hosts[i], port=self._ports[i]
+                )
+            )
 
     def disconnect(self):
         """
@@ -95,10 +109,13 @@ class ZMQClient(Driver):
             return
         for i, host in enumerate(self._hosts):
             try:
-                self._socket.disconnect('tcp://{host}:{port}'.format(
-                    host=host, port=self._ports[i]))
+                self._socket.disconnect(
+                    "tcp://{host}:{port}".format(
+                        host=host, port=self._ports[i]
+                    )
+                )
             except zmq.ZMQError as exc:
-                if str(exc) != 'No such file or directory':
+                if str(exc) != "No such file or directory":
                     raise exc
 
     def reconnect(self):
@@ -120,10 +137,13 @@ class ZMQClient(Driver):
         :return: ``None``
         :rtype: ``NoneType``
         """
-        return retry_until_timeout(exception=zmq.ZMQError,
-                                   item=self._socket.send,
-                                   kwargs={'data': data, 'flags': zmq.NOBLOCK},
-                                   timeout=timeout, raise_on_timeout=True)
+        return retry_until_timeout(
+            exception=zmq.ZMQError,
+            item=self._socket.send,
+            kwargs={"data": data, "flags": zmq.NOBLOCK},
+            timeout=timeout,
+            raise_on_timeout=True,
+        )
 
     def receive(self, timeout=30):
         """
@@ -136,10 +156,13 @@ class ZMQClient(Driver):
         :return: The received message.
         :rtype: ``bytes`` or ``zmq.sugar.frame.Frame`` or ``memoryview``
         """
-        return retry_until_timeout(exception=zmq.ZMQError,
-                                   item=self._socket.recv,
-                                   kwargs={'flags': zmq.NOBLOCK},
-                                   timeout=timeout, raise_on_timeout=True)
+        return retry_until_timeout(
+            exception=zmq.ZMQError,
+            item=self._socket.recv,
+            kwargs={"flags": zmq.NOBLOCK},
+            timeout=timeout,
+            raise_on_timeout=True,
+        )
 
     def subscribe(self, topic_filter):
         """

@@ -4,5 +4,7 @@ from .testing import (
     TestGroupReport,
     TestCaseReport,
     Status,
-    styles as test_styles
+    RuntimeStatus,
+    styles as test_styles,
+    ReportCategories,
 )

@@ -14,14 +14,6 @@ inherently limited to a set of APIs or functionalities. While the library
 provides a large amount of drivers and assertions, users can easily provide
 their own as well.
 
-It is possible to use MultiTest to run unit test binaries that require an
-external environment to be present. The MultiTest environment is helpful to
-bring up the right drivers in a dynamic manner, and information can be passed to
-the unit tests to let them interact with that environment in the way they find
-necessary. This is particularly helpful when implementing a client API in a
-particular language when the server is written in a different language for
-example.
-
 For API documentation see the
 :py:class:`MultiTest <testplan.testing.multitest.base.MultiTest>` class reference.
 
@@ -95,12 +87,6 @@ A MultiTest instance can be constructed from the following parameters:
    change testsuite and testcase execution order, click
    :ref:`here <ordering_tests>` .
 
-   Testsuites are normally identified in the report by their class name.
-   However, they can also have ``suite_name()`` method. If this is present,
-   then their name is composed of the class name and the return value of this
-   method. This name is set after all the tests and the teardown method
-   (if it exists) have run.
-
 * **Environment**: The environment is a list of
   :py:class:`drivers <testplan.testing.multitest.driver.base.Driver>`. Drivers are
   typically implementations of messaging, protocols or external executables. If
@@ -109,12 +95,13 @@ A MultiTest instance can be constructed from the following parameters:
   required for interacting with it, such as network connections.
 
 * **Initial Context**: The initial context is an optional way to pass
-  information to be used by drivers and fro mwithin testcases. When drivers are
+  information to be used by drivers and from within testcases. When drivers are
   added, they are provided with access to the driver environment that also
   contains the initial_context input. This mechanism is useful to let drivers
   know for example how to connect to other drivers. It is possible to use the
   initial context to pass global values that will be available to all drivers
-  during startup and testcases during execution.
+  during startup and testcases during execution. Example of initial context
+  can be found :ref:`here <example_basic_initial_context>`
 
 
 Example
@@ -174,6 +161,21 @@ respect to multiple suites is the following:
     4. Stop each driver in reverse order
 
 
+Name customization
+------------------
+
+By default, a testsuite is identified in the report by its class name, and testcase
+by its function name. User can specify custom name for testsuite or testcase like this:
+
+    * @testcase(name="My Testcase")
+    * @testsuite(name="My Test Suite")
+    * @testsuite(name=lambda cls_name, suite: "{} -- {}".format(cls_name, id(suite)))
+
+Example can be found :ref:`here <example_basic_name_customization>`.
+
+To customize names for parametrized testcases another argument ``name_func`` can be
+used, refer to the document of :ref:`name_func <parametrization_custom_name_func>`.
+
 Listing
 -------
 
@@ -213,9 +215,9 @@ without any trimming the output.
 
     $ test_plan.py --info pattern
     Primary
-    Primary:AlphaSuite
-      Primary:AlphaSuite:testcase_a
-      Primary:AlphaSuite:testcase_b
+    Primary::AlphaSuite
+      Primary::AlphaSuite::testcase_a
+      Primary::AlphaSuite::testcase_b
       ...
 
 
@@ -276,6 +278,39 @@ and overriding ``get_output`` method.
 An example implementation of custom test lister can be seen
 :ref:`here <example_multitest_listing_custom>`.
 
+Listers can be registered to be used with the ``--info`` commandline parameter the same way as the built in listers.
+
+The custom lister class should provide:
+
+* it's name either setting the :py:attr:`NAME <testplan.testing.listing.BaseLister.NAME>` or override the
+  :py:meth:`name() <testplan.testing.listing.BaseLister.name>` method. This should be an Enum name like ``NAME_FULL``.
+  The name will be used to derive the commandline param which is the kebab-case version of the name.
+* and it's description either setting the :py:attr:`DESCRIPTION <testplan.testing.listing.BaseLister.DESCRIPTION>` or
+  override the :py:meth:`description() <testplan.testing.listing.BaseLister.description>` method
+
+and it need to be registered with :py:data:`testplan.testing.listing.listing_registry` as follows
+
+.. code-block:: python
+
+  from testplan.testing.listing import BaseLister, listing_registry
+  from testplan import test_plan
+
+  class HelloWorldLister(BaseLister):
+
+    NAME = "HELLO_WORLD"
+    DESCRIPTION = "This lister print Hello World for each multitest"
+
+    def get_output(self, instance):
+        return "Hello World"
+
+  listing_registry.add_lister(HelloWorldLister())
+
+  # check --info hello-world
+  @test_plan()
+  def main(plan):
+    ....
+
+the full example can be found :ref:`here <example_multitest_listing_custom_cmd>`.
 
 .. warning::
 
@@ -648,7 +683,6 @@ How can I troubleshoot a problem?
 
 .. _tagging:
 
-
 Tagging
 -------
 
@@ -927,7 +961,7 @@ This is equivalent to declaring each method call explicitly:
     @testsuite
     class SampleTest(object):
 
-      @testcase(parameters={
+      @testcase(parameters=(
           ('Ben', 'Richard', 'Brown'),
           ('Ben', 'Richard', 'van der Heide'),
           ('Ben', 'Richard', "O'Connell"),
@@ -949,9 +983,9 @@ used along with parameterized testcases, then its arguments should contain
 
 .. code-block:: python
 
-  # To be used in pre_testcase/post_testcase
-  def function(name, self, env, result, **kwargs):
-      ...
+    # To be used in pre_testcase/post_testcase
+    def function(name, self, env, result, **kwargs):
+        ...
 
 .. _parametrization_default_values:
 
@@ -980,75 +1014,65 @@ method has default values assigned to the parametrized arguments:
 Testcase name generation
 ++++++++++++++++++++++++
 
-When you use parametrization, Testplan will try to generate a legible name for
-the test case methods generated. By default the name format is
-``<original_method_name>__<arg_1_name>_<arg_1_value>__...__<arg_n_name>_<arg_n_value>``.
-If the generated method name is longer than 255 characters or does not have a
-valid Python attribute name format (alphanumeric with underscores), Testplan
-will fall back to simple format: ``<original_method_name>__<integer_suffix>``.
+When you use parametrization, Testplan will try creating a sensible name for each
+generated testcase. By default the naming convention is:
+``'ORIGINAL_TESTCASE_NAME <arg1=value1, arg2=value2, ... argN=valueN>'``
 
-In the example below, 2 new testcases will be generated, with the names being
-``'test_add_list__number_list_[1, 2, 3]__expected_6'`` and
-``'test_add_list__number_list_[6, 7, 8, 9]__expected_30'``. These are not valid
-Python attribute names, so Testplan will fall back to ``'test_add_list__0'`` and
-``'test_add_list__1'``.
+In the example below, 2 new testcases will be generated, and their names become
+``'Add List <number_list=[1, 2, 3], expected=6>'``
+and ``'Add List <number_list=[6, 7, 8, 9], expected=30>'``.
 
 .. code-block:: python
 
     @testsuite
     class SampleTest(object):
 
-      @testcase(parameters=(
-          ([1, 2, 3], 6),
-          (range(6, 10), 30),
-      )
-    )
-    def add_list(self, env, result, number_list, expected):
-        result.equal(expected, sum(number_list))
+        @testcase(
+            name="Add List",
+            parameters=(
+                ([1, 2, 3], 6),
+                (range(6, 10), 30),
+            )
+        )
+        def add_list(self, env, result, number_list, expected):
+            result.equal(expected, sum(number_list))
 
-
-However you can provide custom name generation functions to override this
-functionality via ``@testcase(parameters=..., name_func=custom_name_func)``
-syntax. You just need to implement a function that accepts
+User can provide custom name generation functions to override this default behavior
+via ``@testcase(name_func=...)`` syntax. You need to implement a function that accepts
 ``func_name`` and ``kwargs`` as arguments, ``func_name`` being a string and
-``kwargs`` being an ``OrderedDict``.
-See
+``kwargs`` being an ``OrderedDict``. See
 :py:func:`default_name_func <testplan.testing.multitest.parametrization.default_name_func>`
 for sample implementation.
 
 .. code-block:: python
 
-  def custom_name_func(func_name, kwargs):
-      """
-      Will generate names like: method_name__numbers_1_2_3__result_6
-      """
-      number_list = kwargs['number_list']
+    def custom_name_func(func_name, kwargs):
+        return '{func_name} -- (numbers: [{joined_list}], result: {expected})'.format(
+            func_name=func_name,
+            joined_list=' '.join(map(str, kwargs['number_list'])),
+            expected=kwargs['expected']
+        )
 
-      return '{func_name}__numbers_{joined_list}__result_{expected}'.format(
-          func_name=func_name,
-          joined_list='_'.join(map(str, number_list)),
-          expected=kwargs['expected']
-      )
+    @testsuite
+    class SampleTest(object):
 
-  @testsuite
-  class SampleTest(object):
+        @testcase(
+            name="Add List",
+            parameters=(
+                ([1, 2, 3], 6),
+                (range(6, 10), 30),
+            ),
+            name_func=custom_name_func
+        )
+        def add_list(self, env, result, number_list, expected):
+            ...
 
-    @testcase(
-        parameters=(
-            ([1, 2, 3], 6),
-            (range(6, 10), 30),
-        ),
-        name_func=custom_name_func
-    )
-    def add_list(self, env, result, number_list, expected):
-        ...
-
-.. note::
-
-  If your custom name function ends up generating duplicate method names for the
-  given arguments, Testplan will implicitly add integer suffixes to ensure unique
-  names.
-
+In the above example, the custom testcase names should be
+``'"Add List -- (numbers: [1 2 3], result: 6)"'`` and
+``'"Add List -- (numbers: [6 7 8 9], result: 30)"'``. If you deliberately set
+``name_func`` to ``None``, then the display names generated are simply
+``'Add List 0'`` and ``'Add List 1'``, that is, integer suffixes appended to
+the original testcase names, without any argument showed.
 
 .. _parametrization_docstring_func:
 
@@ -1266,233 +1290,78 @@ If the testcase times out it will raise a :py:class:`TimeoutException <testplan.
 
 Also keep in mind that testplan will take a little bit of effort to monitor execution time of testcases with ``timeout`` attribute, so it is better to allocate a little more seconds than you have estimated how long a testcase would need.
 
-.. _multitest_drivers:
+Xfail
+-----
 
-Drivers
-=======
+Testcases and testsuites that you expect to fail can be marked with the `@xfail` decorator. These failures will be visible in the test report, highlighted in orange. Expected failures will not cause the testplan as a whole to be considered a failure.
 
-MultiTest provides a dynamic driver configuration system, around the two
-following properties:
+The Xfail means that you expect a test to fail for some reason. If a testcase/testsuite is unstable (passing sometimes, failling other times) then `strict=False` (default value is `False`) can be used. This means if the testcase/testsuite fails it will be marked "expected to fail" (`xfail`), if it passes it will be marked as "unexpectedly passing" (`xpass`). 
+Both `xfail` and `xpass` don't cause the parent testsuite or MultiTest to be marked as a failure.
 
-    * Drivers can depend on other drivers.
-    * Driver configuration is not required to exist until the driver starts.
-
-Dependencies between drivers are expressed very simply: any driver in the
-environment list passed to MultiTest is allowed to depend on any other driver
-appearing earlier than itself in the list.
-
-Specifying dependencies this way is sufficiently flexible to cover all cases
-while remaining simple enough to understand and easily express.
-
-Dependent values can be created either through the
-:py:func:`context() <testplan.common.utils.context.context>` call, or using
-pairs of double curly brackets in configuration files (MultiTest is using the
-`Tempita <http://pythonpaste.org/tempita/>`_ templating library).
+The ``xfail`` decorator mandates a reason that explains why the test is marked as Xfail:
 
 .. code-block:: python
 
-    # Example environment of three dynamically connecting drivers.
-    #  --------------         -----------------         ---------------
-    #  |            | ------> |               | ------> |             |
-    #  |   Client   |         |  Application  |         |   Service   |
-    #  |            | <------ |               | <------ |             |
-    #  --------------         -----------------         ---------------
-
-    environment=[
-        Service(name='service'),
-        Application(name='app',
-                    host=context('service', '{{host}}')
-                    port=context('service', '{{port}}'))
-        Client(name='client',
-               host=context('app', '{{host}}')
-               port=context('app', '{{port}}'))
-    ]
+    @xfail(reason='unstable test')
+    def unstable_testcase(self, env, result):
+        ...
 
 
-Configuration
--------------
+If a test is expect to fail all the time, you can also use the `strict=True` then `xpass` will be considered as `fail`. This will cause the unexpectedly passing result to fail the testcase or testsuite.
 
-Context
+.. code-block:: python
+
+    @xfail(reason='api changes', strict=True)
+    def fail_testcase(self, env, result):
+        ...
+
+Logging
 -------
-Context at any point during the MultiTest startup is defined as the state of the
-set of drivers that have already started. As soon as a driver has completed its
-start step successfully, all of its attributes become part of the context and
-are thus made available to all drivers that will start after it.
 
-In practice the context is often used to communicate hostnames, port values,
-file paths, and other such values dynamically generated at runtime to avoid
-collisions between setups that must be shared between the various drivers to
-communicate meaningfully.
+Python standard logging infrastructure can be used for logging, however testplan provide mixins to use a conveniently configured logger from testcases.
 
-Any context value from any process can be accessed by the
-:py:func:`context() <testplan.common.utils.context.context>` call, taking a
-driver name and a tempita expression that must be valid on that driver name.
-This call effectively creates a late-bound value that drivers will resolve at
-startup, against the current context.
+See also the :ref:`a downloadable example <example_multitest_logging>`.
 
-Those expressions can also be used in the configuration of the drivers that
-support them, for example
-:py:class:`App <testplan.testing.multitest.driver.app.App>`. In the case of
-configurations, the values of the driver that is being configured are available
-in the global scope, and other drivers can be accessed through the special
-'context' object.
-
-Network dependencies
---------------------
-Probably one of the most common use-cases of the context is the passing of
-network addresses between processes. For robustness reasons, it is much
-preferable to neither hardcode hosts nor ports in test setups. Ports can
-typically be assigned by the operating system in such a way that collisions
-between instances are avoided.
-
-This is a simple example of a server and a client, where the server is binding
-to ``localhost:0`` and communicating at runtime to the client where it is in
-fact listening. As long as there are dynamic ports available on the host, this
-setup will start reliably and will not collide with other already running
-applications.
+:py:class:`LogCaptureMixin <testplan.testing.multitest.logging.LogCaptureMixin>` when inherited provide a ``self.logger`` which will log to the normal testplan log. Furthermore the mixin provide a context manager :py:meth:`capture_log(result) <testplan.testing.multitest.logging.LogCaptureMixin.capture_log>` which can be used to automatically capture logs happening in the context and attaching it to the result.
 
 .. code-block:: python
 
-    # Example environment of a Server and 2 Clients.
-    #
-    #      +--------- client1
-    #      |
-    #   server
-    #      |
-    #      +--------- client2
-    #
-    # Client will have access to the server host, port
-    # after server starts.
+    @testsuite
+    class LoggingSuite(LogCaptureMixin):
 
-    [
-        TCPServer('server'),
-        TCPClient(
-            'client1',
-            context('server', '{{host}}'),
-            context('server', '{{port}}')
-        )
-        TCPClient(
-            'client2',
-            context('server', '{{host}}'),
-            context('server', '{{port}}')
-        )
-    ]
+        @testcase
+        def testsuite_level(self, env, result):
+            with self.capture_log(
+                result
+            ) as logger:  # as convenience the logger is returned but is is really the same as self.logger
+                logger.info("Hello")
+                self.logger.info("Logged as well")
 
-Users are strongly encouraged to follow this practice rather than hardcode host
-names and port numbers in their test setups.
+The code above will capture the two log line and inject it into the result. The capture can be configured to capture log to a file and attach to the result. It also possible to capture the base testplan logger, or even the root logger during the execution of the context. If the default formatting is not good enough it can be changed for the report. For all these options see :py:meth:`LogCaptureMixin.capture_log <testplan.testing.multitest.logging.LogCaptureMixin.capture_log>`
 
-Work with unit test
--------------------
-Drivers can also be useful while working with other unit testing frameworks like
-like GTest or Hobbes Test. Testplan will export environment variables for newly
-started test process. Have a look at the following code:
+:py:class:`AutoLogCaptureMixin <testplan.testing.multitest.logging.AutoLogCaptureMixin>` when inherited it automatically capture and insert logs to the result for every testcase.
 
 .. code-block:: python
 
-    plan.add(GTest(
-        name='My GTest',
-        driver=BINARY_PATH,
-        environment=[
-            TCPServer(name='my server'),
-            TCPClient(name='client-101',
-                host=context('server', '{{host}}'),
-                port=context('server', '{{port}}')
-            )
-        ]
-    )
+    @testsuite
+    class AutoLoggingSuite(AutoLogCaptureMixin):
+        """
+        AutoLogCaptureMixin will automatically add captured log at the end of all testcase
+        """
 
-In your unit test process, you can find an environment variable named
-'DRIVER_MY_SERVER_ATTR_HOST', likewise, 'DRIVER_CLIENT_101_ATTR_PORT' is also
-available. It is easy to understand that the string is formatted in uppercase,
-like 'DRIVER_<uid of driver>_ATTR_<attribute name>', while hyphens and spaces
-are replaced by underscores.
+        @testcase
+        def case(self, env, result):
+            self.logger.info("Hello")
 
-.. _multitest_builtin_drivers:
+        @testcase
+        def case2(self, env, result):
+            self.logger.info("Do it for all the testcases")
 
-Built-in drivers
-----------------
-
-    * :py:class:`Driver <testplan.testing.multitest.driver.base.Driver>` baseclass
-      which provides the most common functionality features and all other
-      drivers inherit .
-
-    * :py:class:`App <testplan.testing.multitest.driver.app.App>` that handles
-      application binaries. See an example demonstrating how App driver
-      can be used on an fxconverter python application
-      :ref:`here <example_fxconverter>`.
-
-    * :py:class:`TCPServer <testplan.testing.multitest.driver.tcp.server.TCPServer>` and
-      :py:class:`TCPClient <testplan.testing.multitest.driver.tcp.client.TCPClient>` to
-      create TCP connections on the Multitest local environment and can often
-      used to mock services. See some examples :ref:`here <example_tcp>`.
-
-    * :py:class:`ZMQServer <testplan.testing.multitest.driver.zmq.server.ZMQServer>` and
-      :py:class:`ZMQClient <testplan.testing.multitest.driver.zmq.client.ZMQClient>` to
-      create ZMQ connections on the Multitest local environment.
-      See some examples demonstrating PAIR and PUB/SUB connections
-      :ref:`here <example_zmq>`.
-
-    * :py:class:`FixServer <testplan.testing.multitest.driver.fix.server.FixServer>` and
-      :py:class:`FixClient <testplan.testing.multitest.driver.fix.client.FixClient>` to
-      enable FIX protocol communication i.e between trading applications and
-      exchanges.
-      See some examples demonstrating FIX communication :ref:`here <example_fix>`.
-
-    * :py:class:`HTTPServer <testplan.testing.multitest.driver.http.server.HTTPServer>` and
-      :py:class:`HTTPClient <testplan.testing.multitest.driver.http.client.HTTPClient>` to
-      enable HTTP communication.
-      See some examples demonstrating HTTP communication :ref:`here <example_http>`.
-
-    * :py:class:`Sqlite3 <testplan.testing.multitest.driver.sqlite.Sqlite3>`
-      to connect to a database and perform sql queries etc. Examples can be
-      found :ref:`here <example_sqlite3>`.
-
-.. _multitest_custom_drivers:
-
-Custom
-------
-
-New drivers can be created to drive custom applications and services,
-manage database connections, represent mocks etc. These can inherit existing
-ones (or the base :py:class:`Driver <testplan.testing.multitest.driver.base.Driver>`)
-and customize some of its methods i.e (``__init__``, ``starting``, ``stopping``,
-etc).
-The :py:class:`~testplan.testing.multitest.driver.base.Driver` base class
-contains most common functionality that a MultiTest environment driver requires,
-including ability to provide file templates that will be instantiated using
-the context information on runtime and mechanisms to extract values from
-logfiles to retrieve dynamic values assigned (like host/port listening).
-
-A generic :py:class:`Application <testplan.testing.multitest.driver.app.App>`
-driver inherits the base driver class and extends it with logic to start/stop
-a binary as a sub-process.
-
-Here is a custom driver inherits the built-in
-:py:class:`App <testplan.testing.multitest.driver.app.App>` driver and overwrites
-:py:meth:`App.started_check <testplan.testing.multitest.driver.app.App.started_check>`
-method to expose ``host`` and ``port`` attributes that was written in the
-logfile by the application binary.
+The capture can be tweaked to set up ``self.log_capture_config`` during construction time, very similar to the :py:meth:`LogCaptureMixin.capture_log <testplan.testing.multitest.logging.LogCaptureMixin.capture_log>`
 
 .. code-block:: python
 
-    from testplan.testing.multitest.driver.app import App
+    def __init__(self):
+        super(AutoLoggingSuiteThatAttach, self).__init__()
+        self.log_capture_config.attach_log = True
 
-    class ServerApp(App):
-
-        def __init__(self, **options):
-            super(ServerApp, self).__init__(**options)
-            self.host = None
-            self.port = None
-
-        def started_check(self, timeout=None):
-            super(ServerApp, self).started_check(timeout=timeout)
-            # In this example, log_regexps contain:
-            #     re.compile(r'.*Listener on: (?P<listen_address>.*)')
-            # and the logfile will contain a line like:
-            #     Listener on: 127.0.0.1:10000
-            self.host, self.port = self.extracts['listen_address'].split(':')
-            # so self.host value will be: '127.0.0.1'
-            # and self.port value will be: '10000'
-
-See also the full
-:ref:`downloadable example <example_fxconverter>` for this custom app.

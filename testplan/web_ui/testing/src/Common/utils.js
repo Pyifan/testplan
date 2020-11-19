@@ -2,26 +2,7 @@
  * Common utility functions.
  */
 import {NAV_ENTRY_DISPLAY_DATA} from "./defaults";
-
-/**
- * Get the nav entry type.
- *
- * @param {Object} entry - nav entry.
- * @returns {string|undefined}
- */
-function getNavEntryType(entry) {
-  if (entry.hasOwnProperty('type')) {
-    if (entry.type === 'TestGroupReport') {
-      return entry.category;
-    } else if (entry.type === 'TestCaseReport') {
-      return 'testcase';
-    } else {
-      return undefined;
-    }
-  } else {
-    return 'testplan';
-  }
-}
+import _ from 'lodash';
 
 /**
  * Get the data to be used when displaying the nav entry.
@@ -82,7 +63,7 @@ function uniqueId() {
   return 'id-' + Math.random().toString(36).substr(2, 16);
 }
 
-/** 
+/**
  * Generate a hash code by string
  * @param {string} str - string that generate hash code
  * @returns {number}
@@ -98,11 +79,88 @@ function hashCode(str) {
   return hash;
 }
 
+/**
+ * Get the string representation of a HTML DOM node
+ * @param {object} dom - HTML DOM node
+ * @returns {string}
+ */
+function domToString(dom) {
+  let tmp = document.createElement("div");
+  tmp.appendChild(dom);
+  return tmp.innerHTML;
+}
+
 export {
-  getNavEntryType,
   getNavEntryDisplayData,
   any,
   sorted,
   uniqueId,
   hashCode,
+  domToString,
+};
+
+/**
+ * Reverses a Map.
+ * @template T, U
+ * @param {Map<T, U>} aMap - The map to reverse
+ * @returns {Map<U, T>}
+ */
+export const reverseMap = aMap => new Map(
+  Array.from(aMap).map(([newVal, newKey]) => [ newKey, newVal ])
+);
+
+export const isNonemptyArray = x => Array.isArray(x) && x.length;
+
+export const unindent = (strArr, ...tagsArr) => strArr.slice(1).reduce(
+  (acc, str, i) => {
+    return `${acc}${`${tagsArr[i]}${str}`.replace(/^\s+/mg, '')}`;
+  },
+  strArr[0]
+).trimLeft();
+
+export const flattened = (strArr, ...tagsArr) => {
+  return _.spread(unindent)([ strArr, ...tagsArr ])
+    .replace(/[ \t]*\n/g, ' ')
+    .trimRight();
+};
+
+/**
+ * The difference between this and lodash.toPlainObject is that this also
+ * plain-objectifies the object's prototype.too. The _...*In*_ suffix follows
+ * the lodash naming scheme where the non-_...*In*_ function acts only on own
+ * properties and the _...*In*_ acts on own and inherited properties.
+ *
+ * Only values meeting the redux definition of "plain" types will be returned,
+ * e.g. the result shallowly omits functions and `symbol`'s.
+ *
+ * @example
+
+ > const err = new Error('oops');
+ > const errObjRepr = { name: 'Error', message: 'oops', stack: 'Uncaught Error: oops...' };
+ > require('lodash').isEqual(toPlainObjectIn(err), errObjRepr);  // i.e. deep equals
+ true
+
+ * @param {object} obj
+ * @param {boolean} [enumerableOnly=false] - whether or not to skip
+ *     non-enumerable properties like Lodash does.
+ * @returns {Object.<string, string | undefined | null | number | boolean | any[] | object>}
+ */
+export const toPlainObjectIn = (obj, enumerableOnly = false) => {
+  const objectify = o => {
+    return Object.fromEntries(Object.entries(o)
+      .filter(([_, v]) => _.isPlainObject(v.value))
+      .filter(([_, v]) => !enumerableOnly || v.enumerable)
+      .map(([k, v]) => [k, v.value])
+    );
+  };
+  const ownDescriptors = Object.getOwnPropertyDescriptors(obj);
+  const ownProps = objectify(ownDescriptors);
+  const proto = Object.getPrototypeOf(obj);
+  const protoDescriptors = Object.getOwnPropertyDescriptors(proto);
+  const inheritedProps = objectify(protoDescriptors);
+  return { ...inheritedProps, ...ownProps };
+};
+
+export const joinURLComponent = (base, component) => {
+  return `${base.replace(/\/+$/, '').trim()}/${component}`;
 };

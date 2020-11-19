@@ -1,18 +1,21 @@
 import React from 'react';
 import {shallow} from 'enzyme';
 import {StyleSheetTestUtils} from "aphrodite";
+import {COLUMN_WIDTH} from "../../Common/defaults"
 
 import Toolbar from '../Toolbar';
 import {
   TOOLBAR_BUTTONS_BATCH,
   TOOLBAR_BUTTONS_INTERACTIVE
 } from "../../Common/defaults";
+import {ResetButton} from "../InteractiveButtons";
 
 function defaultProps() {
   return {
     status: 'passed',
     buttons: TOOLBAR_BUTTONS_BATCH,
     handleNavFilter: jest.fn(),
+    filterBoxWidth: `${COLUMN_WIDTH}em`
   };
 }
 
@@ -59,15 +62,22 @@ describe('Toolbar', () => {
   it('uses the failed style when status is failed', () => {
     props.status = 'failed';
     const toolbar = renderToolbar();
-    const container = toolbar.find('div').get(0);
+    const container = toolbar.find('Collapse').get(0);
     expect(container.props.className).toMatch(/toolbar.+toolbarFailed/);
   });
 
-  it('uses the neutral style when status is neither passed or failed', () => {
-    props.status = undefined;
+  it('uses the neutral style when status is unknown', () => {
+    props.status = 'unknown';
     const toolbar = renderToolbar();
-    const container = toolbar.find('div').get(0);
-    expect(container.props.className).toMatch(/toolbar.+toolbarNeutral/);
+    const container = toolbar.find('Collapse').get(0);
+    expect(container.props.className).toMatch(/toolbar.+toolbarUnknown/);
+  });
+
+  it('inserts extra buttons into the toolbar', () => {
+    const resetCbk = jest.fn()
+    props.extraButtons = [ResetButton(resetCbk, false)];
+    const toolbar = renderToolbar();
+    expect(toolbar).toMatchSnapshot();
   });
 
 });

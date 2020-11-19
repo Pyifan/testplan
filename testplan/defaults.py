@@ -1,7 +1,9 @@
 """All default values that will be shared between config objects go here."""
 import os
-import socket
+
 from testplan.report.testing.styles import StyleArg
+
+TESTPLAN_TIMEOUT = 14400  # 4h
 
 SUMMARY_NUM_PASSING = 5
 SUMMARY_NUM_FAILING = 5
@@ -14,12 +16,19 @@ PDF_STYLE = StyleArg.SUMMARY.value
 STDOUT_STYLE = StyleArg.EXTENDED_SUMMARY.value
 
 REPORT_DIR = os.getcwd()
-XML_DIR = os.path.join(REPORT_DIR, 'xml')
-PDF_PATH = os.path.join(REPORT_DIR, 'report.pdf')
-JSON_PATH = os.path.join(REPORT_DIR, 'report.json')
-ATTACHMENTS = '_attachments'
+XML_DIR = os.path.join(REPORT_DIR, "xml")
+PDF_PATH = os.path.join(REPORT_DIR, "report.pdf")
+JSON_PATH = os.path.join(REPORT_DIR, "report.json")
+ATTACHMENTS = "_attachments"
 ATTACHMENTS_DIR = os.path.join(REPORT_DIR, ATTACHMENTS)
 
-WEB_SERVER_HOSTNAME = 'localhost'
+WEB_SERVER_HOSTNAME = "0.0.0.0"
 WEB_SERVER_PORT = 0
 WEB_SERVER_TIMEOUT = 10
+
+# Default to using 4 threads for interactive pool.
+INTERACTIVE_POOL_SIZE = 4
+
+# Name of multitest/testsuite/testcase (usually used for display) cannot be
+# too long, or the UI will not be pleasant when they end up with long names
+MAX_TEST_NAME_LENGTH = 255

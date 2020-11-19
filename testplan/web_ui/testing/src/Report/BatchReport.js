@@ -1,14 +1,22 @@
-import React, {Component} from 'react';
+import React from 'react';
 import {StyleSheet, css} from 'aphrodite';
 import axios from 'axios';
 
 import Toolbar from '../Toolbar/Toolbar';
+import {TimeButton} from '../Toolbar/Buttons';
 import Nav from '../Nav/Nav';
-import AssertionPane from '../AssertionPane/AssertionPane';
-import Message from '../Common/Message';
-import {propagateIndices} from "./reportUtils";
+import {
+  PropagateIndices,
+  UpdateSelectedState,
+  GetReportState,
+  GetCenterPane,
+  GetSelectedEntries,
+  MergeSplittedReport,
+  filterReport,
+  isValidSelection,
+} from "./reportUtils";
 import {COLUMN_WIDTH} from "../Common/defaults";
-import {getNavEntryType} from "../Common/utils";
+import {taggedReport} from "../Common/fakeReport";
 
 /**
  * BatchReport component:
@@ -16,20 +24,59 @@ import {getNavEntryType} from "../Common/utils";
  *   * display messages when loading report or error in report.
  *   * render toolbar, nav & assertion components.
  */
-class BatchReport extends Component {
+class BatchReport extends React.Component {
   constructor(props) {
     super(props);
-    this.saveAssertions = this.saveAssertions.bind(this);
+    this.setError = this.setError.bind(this);
+    this.setReport = this.setReport.bind(this);
     this.handleNavFilter = this.handleNavFilter.bind(this);
+    this.updateFilter = this.updateFilter.bind(this);
+    this.updateTagsDisplay = this.updateTagsDisplay.bind(this);
+    this.updateTimeDisplay = this.updateTimeDisplay.bind(this);
+    this.updateDisplayEmpty = this.updateDisplayEmpty.bind(this);
+    this.handleNavClick = this.handleNavClick.bind(this);
+    this.handleColumnResizing = this.handleColumnResizing.bind(this);
 
     this.state = {
-      navWidth: COLUMN_WIDTH,
-      report: undefined,
-      assertions: undefined,
-      testcaseUid: undefined,
+      navWidth: `${COLUMN_WIDTH}em`,
+      report: null,
+      filteredReport: {filter:null, report: null},
+      testcaseUid: null,
       loading: false,
-      error: undefined
+      logs: [],
+      error: null,
+      filter: null,
+      displayTags: false,
+      displayTime: false,
+      displayEmpty: true,
+      selectedUIDs: [],
+      lastManualSelectedUIDs: [],
     };
+  }
+
+  setError(error) {
+    this.setState({
+      error: error,
+      loading: false,
+    });
+  }
+
+  setReport(report) {
+    const processedReport = PropagateIndices(report);
+    const filteredReport = filterReport(
+      processedReport, 
+      this.state.filteredReport.filter);
+
+    const selectedUIDs = this.autoSelect(filteredReport.report);
+
+    this.setState({
+      report: processedReport,
+      filteredReport,
+      selectedUIDs,
+      lastManualSelectedUIDs: selectedUIDs,
+      loading: false,
+      logs: report.logs,
+    });
   }
 
   /**
@@ -41,24 +88,53 @@ class BatchReport extends Component {
    * @public
    */
   getReport() {
-    const paths = window.location.pathname.split('/');
-    if (paths.length >= 3) {
-      const uid = paths[2];
-      axios.get(`/testplan/${uid}/report`)
-        .then(response => propagateIndices([response.data]))
-        .then(report => this.setState({
-          report: report,
-          selected: [{uid: report[0].uid, type: 'testplan'}],
-          loading: false
-        }))
-        .catch(error => this.setState({
-          error,
-          loading: false
-        }));
+    // Inspect the UID to determine the report to render. As a special case,
+    // we will display a fake report for development purposes.
+    const uid = this.props.match.params.uid;
+    if (uid === "_dev") {
+      setTimeout(
+        () => this.setReport(taggedReport),
+        1500);
     } else {
-      this.setState({
-        error: {message: 'Error retrieving UID from URL.'},
-        loading: false});
+      axios.get(`/api/v1/reports/${uid}`)
+        .then(response => {
+          const rawReport = response.data;
+          if (rawReport.version === 2) {
+            const assertionsReq = axios.get(
+              `/api/v1/reports/${uid}/attachments/${rawReport.assertions_file}`
+            );
+            const structureReq = axios.get(
+              `/api/v1/reports/${uid}/attachments/${rawReport.structure_file}`
+            );
+            axios.all([assertionsReq, structureReq]).then(
+              axios.spread((assertionsRes, structureRes) => {
+                const mergedReport = MergeSplittedReport(
+                  rawReport, assertionsRes.data, structureRes.data
+                );
+                this.setReport(mergedReport);
+            })).catch(this.setError);
+          } else {
+            this.setReport(rawReport);
+          }
+        }).catch(this.setError);
+    }
+  }
+
+  /**
+   * Auto-select an entry in the report when it is first loaded.
+   * @param {reportNode} reportEntry - the current report entry to select from.
+   * @return {Array[string]} List of UIDs of the currently selected entries.
+   */
+  autoSelect(reportEntry) {
+    const selection = [reportEntry.uid];
+
+    // If the current report entry has only one child entry and that entry is
+    // not a testcase, we automatically expand it.
+    if ((reportEntry.entries.length === 1) &&
+        (reportEntry.entries[0].category!== "testcase")) {
+      return selection.concat(this.autoSelect(reportEntry.entries[0]));
+    } else {
+      return selection;
     }
   }
 
@@ -71,78 +147,125 @@ class BatchReport extends Component {
   }
 
   /**
-   * Set or clear the assertions in state depending on the type of the entry.
+   * Handle filter expressions being typed into the filter box.
    *
-   * @param {Object} entry - current entry clicked on the Nav.
+   * @param {Object} filter - the paresed filter expression
    * @public
    */
-  saveAssertions(entry) {
-    const entryType = getNavEntryType(entry);
-    if (entryType === 'testcase') {
-      this.setState({assertions: entry.entries, testcaseUid: entry.uid});
-    } else {
-      this.setState({assertions: undefined, testcaseUid: undefined});
-    }
+  handleNavFilter(filter) { // eslint-disable-line no-unused-vars
+    const filteredReport = filterReport(this.state.report, filter);
+    
+    let selectedUIDs = 
+      isValidSelection(this.state.lastManualSelectedUIDs.slice(1), 
+                       filteredReport.report) ?
+      this.state.lastManualSelectedUIDs :
+      this.autoSelect(filteredReport.report);
+      
+    this.setState({ 
+      filteredReport,
+      selectedUIDs,
+    }); 
   }
 
   /**
-   * Handle filter expressions being typed into the filter box. Placeholder.
+   * Update the global filter state of the entry.
    *
-   * @param {Object} e - keyup event.
+   * @param {string} filter - null, all, pass or fail.
    * @public
    */
-  handleNavFilter(e) { // eslint-disable-line no-unused-vars
-    // Save expressions to state.
+  updateFilter(filter) {
+    this.setState({filter: filter});
+  }
+
+  /**
+   * Update tag display of each navigation entry.
+   *
+   * @param {boolean} displayTags.
+   * @public
+   */
+  updateTagsDisplay(displayTags) {
+    this.setState({displayTags: displayTags});
+  }
+
+  /**
+   * Update navigation pane to show/hide entries of empty testcases.
+   *
+   * @param {boolean} displayEmpty.
+   * @public
+   */
+  updateDisplayEmpty(displayEmpty) {
+    this.setState({displayEmpty: displayEmpty});
+  }
+
+  /**
+   * Update execution time display of each navigation entry and each assertion.
+   *
+   * @param {boolean} displayTime.
+   * @public
+   */
+  updateTimeDisplay(displayTime) {
+    this.setState({displayTime: displayTime});
+  }
+
+  /**
+   * Handle resizing event and update NavList & Center Pane.
+   */
+  handleColumnResizing(navWidth) {
+    this.setState({navWidth: navWidth});
+  }
+
+  /**
+   * Handle a navigation entry being clicked.
+   */
+  handleNavClick(e, entry, depth) {
+    e.stopPropagation();
+    this.setState((state, props) => UpdateSelectedState(state, entry, depth));
   }
 
   render() {
-    let report = [];
-    let reportStatus;
-    let reportFetchMessage;
+    const {reportStatus, reportFetchMessage} = GetReportState(this.state);
 
-    // Handle the Testplan report if it has been fetched.
-    if (this.state.report === undefined) {
-      // The Testplan report hasn't been fetched yet.
-      if (this.state.loading) {
-        reportFetchMessage = 'Fetching Testplan report...';
-      } else if (this.state.error !== undefined){
-        reportFetchMessage = 'Error fetching Testplan report. ' +
-        `(${this.state.error.message})`;
-      } else {
-        reportFetchMessage = 'Waiting to fetch Testplan report...';
-      }
-    } else {
-      // The Testplan report has been fetched.
-      reportStatus = this.state.report[0].status;
-      report = this.state.report;
+    if (this.state.report && this.state.report.name) {
+      window.document.title = this.state.report.name;
     }
 
-    // Create the center pane.
-    let centerPane;
-    if (this.state.assertions !== undefined) {
-      centerPane = <AssertionPane
-        assertions={this.state.assertions}
-        left={this.state.navWidth + 1.5}
-        testcaseUid={this.state.testcaseUid} />;
-    } else if (reportFetchMessage !== undefined) {
-      centerPane = <Message
-        message={reportFetchMessage}
-        left={this.state.navWidth} />;
-    } else {
-      centerPane = <Message
-        message='Please select a testcase.'
-        left={this.state.navWidth} />;
-    }
+    const selectedEntries = GetSelectedEntries(
+      this.state.selectedUIDs, this.state.filteredReport.report
+    );
+    const centerPane = GetCenterPane(
+      this.state,
+      reportFetchMessage,
+      this.props.match.params.uid,
+      selectedEntries,
+    );
 
     return (
       <div className={css(styles.batchReport)}>
         <Toolbar
+          filterBoxWidth={this.state.navWidth}
           status={reportStatus}
-          buttons={[]}
-          handleNavFilter={this.handleNavFilter} />
+          report={this.state.report}
+          handleNavFilter={this.handleNavFilter}
+          updateFilterFunc={this.updateFilter}
+          updateEmptyDisplayFunc={this.updateDisplayEmpty}
+          updateTagsDisplayFunc={this.updateTagsDisplay}
+          extraButtons={[<TimeButton
+            key="time-button"
+            status={reportStatus}
+            updateTimeDisplayCbk={this.updateTimeDisplay}
+          />]}
+        />
         <Nav
-          report={report}
-          saveAssertions={this.saveAssertions} />
+          navListWidth={this.state.navWidth}
+          report={this.state.filteredReport.report}
+          selected={selectedEntries}
+          filter={this.state.filter}
+          displayEmpty={this.state.displayEmpty}
+          displayTags={this.state.displayTags}
+          displayTime={this.state.displayTime}
+          handleNavClick={this.handleNavClick}
+          handleColumnResizing={this.handleColumnResizing}
+        />
         {centerPane}
       </div>
     );
@@ -151,7 +274,8 @@ class BatchReport extends Component {
 
 const styles = StyleSheet.create({
   batchReport: {
-    overflow: 'hidden'
+    /** overflow will hide dropdown div */
+    // overflow: 'hidden'
   }
 });
 

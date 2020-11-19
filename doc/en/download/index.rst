@@ -9,6 +9,7 @@ Downloadable examples
 
     Multitest
     Assertions
+    Graphs
     Test Output
     Interactive
     App
@@ -16,4 +17,6 @@ Downloadable examples
     Execution Pools
     Database
     Data Science
-    C++
+    CPP
+    Python Unit Testing
+

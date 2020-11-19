@@ -1,6 +1,8 @@
+from schema import Or
+
 from testplan.common.config import ConfigOption
 
-from testplan.report.testing import TestGroupReport, TestCaseReport
+from testplan.report import TestGroupReport, TestCaseReport, RuntimeStatus
 from testplan.testing.multitest.entries.assertions import RawAssertion
 from testplan.testing.multitest.entries.schemas.base import registry
 
@@ -9,16 +11,18 @@ from ..base import ProcessRunnerTest, ProcessRunnerTestConfig
 import os
 import json
 
+
 class HobbesTestConfig(ProcessRunnerTestConfig):
     """
     Configuration object for :py:class:`~testplan.testing.cpp.HobbesTest`.
     """
+
     @classmethod
     def get_options(cls):
         return {
-            ConfigOption('tests', default=None): list,
-            ConfigOption('json', default='report.json'): str,
-            ConfigOption('other_args', default=[]): list,
+            ConfigOption("tests", default=None): Or(None, list),
+            ConfigOption("json", default="report.json"): str,
+            ConfigOption("other_args", default=[]): list,
         }
 
 
@@ -27,6 +31,12 @@ class HobbesTest(ProcessRunnerTest):
     Subprocess test runner for Hobbes Test:
     https://github.com/Morgan-Stanley/hobbes
 
+    :param name: Test instance name. Also used as uid.
+    :type name: ``str``
+    :param binary: Path the to application binary or script.
+    :type binary: ``str``
+    :param description: Description of test instance.
+    :type description: ``str``
     :param tests: Run one or more specified test(s).
     :type tests: ``list``
     :param json: Generate test report in JSON with the specified name. The
@@ -43,23 +53,41 @@ class HobbesTest(ProcessRunnerTest):
 
     CONFIG = HobbesTestConfig
 
-    def __init__(self, **options):
-        options['driver'] = os.path.abspath(options['driver'])
+    def __init__(
+        self,
+        name,
+        binary,
+        description=None,
+        tests=None,
+        json="report.json",
+        other_args=None,
+        **options
+    ):
+        options.update(self.filter_locals(locals()))
+        options["binary"] = os.path.abspath(options["binary"])
         # Change working directory to where the test binary is,
         # as it might look under current directory for other binaries.
-        options['proc_cwd'] = os.path.dirname(options['driver'])
+        options["proc_cwd"] = os.path.dirname(options["binary"])
         super(HobbesTest, self).__init__(**options)
 
     def test_command(self):
-        cmd = [self.cfg.driver] + ['--json', self.report_path]
+        cmd = [self.cfg.binary] + ["--json", self.report_path]
         if self.cfg.tests:
-            cmd.append('--tests')
+            cmd.append("--tests")
             cmd += self.cfg.tests
         cmd += self.cfg.other_args
         return cmd
 
+    def test_command_filter(self, testsuite_pattern="*", testcase_pattern="*"):
+        cmd = self.test_command()
+        if testcase_pattern != "*":
+            raise RuntimeError("Cannot run individual testcases")
+        if testsuite_pattern != "*":
+            cmd.extend(["--tests", testsuite_pattern])
+        return cmd
+
     def list_command(self):
-        cmd = [self.cfg.driver, '--list']
+        cmd = [self.cfg.binary, "--list"]
         return cmd
 
     def read_test_data(self):
@@ -75,22 +103,26 @@ class HobbesTest(ProcessRunnerTest):
         result = []
         for suite in test_data:
             suite_report = TestGroupReport(
-                name=suite['name'],
-                category='suite',
+                name=suite["name"], uid=suite["name"], category="testsuite"
             )
             suite_has_run = False
 
-            for testcase in suite['data']:
-                if testcase['status'] != 'skipped':
+            for testcase in suite["data"]:
+                if testcase["status"] != "skipped":
                     suite_has_run = True
 
-                    testcase_report = TestCaseReport(name=testcase['name'])
+                    testcase_report = TestCaseReport(
+                        name=testcase["name"],
+                        uid=testcase["name"],
+                        suite_related=True,
+                    )
                     assertion_obj = RawAssertion(
-                        passed=testcase['status'] == 'pass',
-                        content=testcase['error'] or testcase['duration'],
-                        description=testcase['name']
+                        passed=testcase["status"] == "pass",
+                        content=testcase["error"] or testcase["duration"],
+                        description=testcase["name"],
                     )
                     testcase_report.append(registry.serialize(assertion_obj))
+                    testcase_report.runtime_status = RuntimeStatus.FINISHED
                     suite_report.append(testcase_report)
 
             if suite_has_run:

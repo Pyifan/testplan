@@ -3,6 +3,11 @@ import six
 import collections
 
 
+def all_are(objs, *are_what):
+    # type: (Iterable[Any], Type) -> bool
+    return all(isinstance(obj, are_what) for obj in objs)
+
+
 class TableEntry(object):
     """
     Represents a table. Internally represented either
@@ -10,28 +15,19 @@ class TableEntry(object):
     """
 
     def __init__(self, table):
-        table = table or []
-        self._check_table(table)
-        self.table = table
+        self.table = self._validate_table(table or [])
 
-    def _check_table(self, table):
-        """Make the original table argument is a valid."""
-        error_msg = '`table` must be a list of' \
-                    ' lists or list of dicts: {}'.format(table)
-
-        if not isinstance(table, (list, tuple)):
-            raise TypeError(error_msg)
-
-        is_list_of_list = all(isinstance(obj, (list, tuple)) for obj in table)
-        is_list_of_dict = all(isinstance(obj, dict) for obj in table)
-
-        if not (is_list_of_dict or is_list_of_list) and table:
-            raise TypeError(error_msg)
-
-        if is_list_of_list and table and not all(
-                isinstance(col, six.string_types) for col in table[0]):
-            raise TypeError(
-                'Table headers must all be strings - got {}'.format(table[0]))
+    @staticmethod
+    def _validate_table(table):
+        if isinstance(table, (list, tuple)):
+            if all_are(table, dict) or all_are(table, list, tuple):
+                return table
+        raise TypeError(
+            (
+                "`table` must be a list of"
+                " lists or list of dicts, got:\n{}".format(table)
+            )
+        )
 
     def __len__(self):
         if not self.table:
@@ -55,7 +51,7 @@ class TableEntry(object):
             return self.table[0]
 
     @staticmethod
-    def consolidate_columns(list_of_dict, placeholder='ABSENT'):
+    def consolidate_columns(list_of_dict, placeholder="ABSENT"):
         """
         In some cases the raw DB results may return a
         list of dictionaries that have different keys.

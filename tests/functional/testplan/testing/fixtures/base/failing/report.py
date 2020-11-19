@@ -1,37 +1,40 @@
 import re
 
-from testplan.report.testing import (
-  TestReport, TestGroupReport,
-  TestCaseReport, Status
+from testplan.report import (
+    TestReport,
+    TestGroupReport,
+    TestCaseReport,
+    RuntimeStatus,
 )
 
 testcase_report = TestCaseReport(
-    name='failure',
+    name="ExitCodeCheck",
     entries=[
         {
-            'type': 'RawAssertion',
-            'description': 'Process failure details',
-            # 'content': ''
-        }
-    ]
+            "type": "RawAssertion",
+            "description": "Process exit code check",
+            "passed": False,
+        },
+        {"type": "Log", "description": "Process stdout",},
+        {"type": "Log", "description": "Process stderr",},
+    ],
 )
 
-testcase_report.status_override = Status.ERROR
-
+testcase_report.runtime_status = RuntimeStatus.FINISHED
 
 expected_report = TestReport(
-    name='plan',
+    name="plan",
     entries=[
         TestGroupReport(
-            name='MyTest',
-            category='dummytest',
+            name="MyTest",
+            category="dummytest",
             entries=[
                 TestGroupReport(
-                    name='ProcessFailure',
-                    category='suite',
-                    entries=[testcase_report]
+                    name="ProcessChecks",
+                    category="testsuite",
+                    entries=[testcase_report],
                 )
-            ]
+            ],
         )
-    ]
+    ],
 )

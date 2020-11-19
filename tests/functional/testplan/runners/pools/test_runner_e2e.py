@@ -6,16 +6,20 @@ import os
 
 import pytest
 
-from testplan import Testplan, Task
+from testplan import TestplanMock, Task
 from testplan.runners.pools import ProcessPool
 
-from testplan.common.utils.testing import check_report, log_propagation_disabled
+from testplan.common.utils.testing import (
+    check_report,
+    log_propagation_disabled,
+)
 
 from testplan.exporters.testing import PDFExporter
 from testplan.common.utils.logger import TESTPLAN_LOGGER
 
 
 from ..fixtures import assertions_failing, assertions_passing
+
 try:
     from ..fixtures import matplotlib
 except ImportError as e:
@@ -38,61 +42,54 @@ def importorxfail(dependency):
     except ImportError as e:
         pytest.xfail(str(e))
 
-@pytest.fixture(scope='session')
-def report_dir(tmpdir_factory):
-    """
-    `tmpdir` fixture is somehow failing for this module, so this fixture
-    explicitly makes sure that given basetemp exists.
-    """
-    basetemp = tmpdir_factory.getbasetemp().strpath
-    if not os.path.exists(basetemp):
-        os.makedirs(basetemp)
-    return tmpdir_factory.mktemp('report')
-
 
 @pytest.mark.parametrize(
-    ('multitest_maker,expected_report,pdf_title,'
-    'expected_plan_result,dependant_module'),
+    (
+        "multitest_maker,expected_report,pdf_title,"
+        "expected_plan_result,dependant_module"
+    ),
     (
         (
             assertions_passing.suites.make_multitest,
             assertions_passing.report.expected_report,
-            'True',
+            "True",
             True,
             None,
         ),
         (
             assertions_failing.suites.make_multitest,
             assertions_failing.report.expected_report,
-            'False',
+            "False",
             False,
             None,
         ),
         (
             matplot_make_multitest,
             matplot_expected_report,
-            'Matplotlib',
+            "Matplotlib",
             True,
-            'matplotlib.pyplot'
+            "matplotlib.pyplot",
         ),
-    )
+    ),
 )
 def test_local_pool_integration(
-    report_dir, multitest_maker,
-    expected_report, pdf_title,
-    expected_plan_result, dependant_module
+    runpath,
+    multitest_maker,
+    expected_report,
+    pdf_title,
+    expected_plan_result,
+    dependant_module,
 ):
     if dependant_module:
         importorxfail(dependant_module)
 
-    pdf_path = report_dir.join('test_report_local_{}.pdf'.format(
-        pdf_title)).strpath
-    plan = Testplan(
-        name='plan',
-        parse_cmdline=False,
-        exporters=[
-            PDFExporter.with_config(pdf_path=pdf_path)
-        ]
+    pdf_path = os.path.join(
+        runpath, "test_report_local_{}.pdf".format(pdf_title)
+    )
+    plan = TestplanMock(
+        name="plan",
+        exporters=[PDFExporter.with_config(pdf_path=pdf_path)],
+        runpath=runpath,
     )
 
     plan.add(multitest_maker())
@@ -103,8 +100,8 @@ def test_local_pool_integration(
         assert plan.run().run is True
 
     for log in plan.report.flattened_logs:
-        if all(word in log['message'] for word in ['tkinter', 'TclError']):
-            pytest.xfail(reason='Tkinter not installed properly')
+        if all(word in log["message"] for word in ["tkinter", "TclError"]):
+            pytest.xfail(reason="Tkinter not installed properly")
 
     check_report(expected=expected_report, actual=plan.report)
 
@@ -114,62 +111,62 @@ def test_local_pool_integration(
 
 
 @pytest.mark.parametrize(
-    ('fixture_dirname,expected_report,pdf_title,'
-     'expected_plan_result,dependant_module'),
+    (
+        "fixture_dirname,expected_report,pdf_title,"
+        "expected_plan_result,dependant_module"
+    ),
     (
         (
-            'assertions_passing',
+            "assertions_passing",
             assertions_passing.report.expected_report,
-            'True',
+            "True",
             True,
             None,
         ),
         (
-            'assertions_failing',
+            "assertions_failing",
             assertions_failing.report.expected_report,
-            'False',
+            "False",
             False,
             None,
         ),
         (
-            'matplotlib',
+            "matplotlib",
             matplot_expected_report,
-            'Matplotlib',
+            "Matplotlib",
             True,
-            'matplotlib.pyplot'
+            "matplotlib.pyplot",
         ),
-    )
+    ),
 )
 def test_process_pool_integration(
-    report_dir, fixture_dirname,
-    expected_report, pdf_title,
-    expected_plan_result, dependant_module
+    runpath,
+    fixture_dirname,
+    expected_report,
+    pdf_title,
+    expected_plan_result,
+    dependant_module,
 ):
     if dependant_module:
         importorxfail(dependant_module)
 
-    pool = ProcessPool(name='MyPool', size=1)
-    pdf_path = report_dir.join('test_report_process_{}.pdf'.format(
-        pdf_title)).strpath
+    pool = ProcessPool(name="MyProcessPool", size=1)
+    pdf_path = os.path.join(
+        runpath, "test_report_local_{}.pdf".format(pdf_title)
+    )
 
-    plan = Testplan(
-        name='plan',
-        parse_cmdline=False,
-        exporters=[
-            PDFExporter(pdf_path=pdf_path)
-        ]
+    plan = TestplanMock(
+        name="plan",
+        exporters=[PDFExporter(pdf_path=pdf_path)],
+        runpath=runpath,
     )
     plan.add_resource(pool)
 
     runners_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    fixture_path = os.path.join(runners_path, 'fixtures', fixture_dirname)
+    fixture_path = os.path.join(runners_path, "fixtures", fixture_dirname)
 
-    task = Task(
-        target='make_multitest',
-        module='suites',
-        path=fixture_path,
-    )
-    plan.schedule(task, resource='MyPool')
+    task = Task(target="make_multitest", module="suites", path=fixture_path)
+    plan.schedule(task, resource="MyProcessPool")
 
     assert not os.path.exists(pdf_path)
 
@@ -177,8 +174,8 @@ def test_process_pool_integration(
         assert plan.run().run is True
 
     for log in plan.report.flattened_logs:
-        if all(word in log['message'] for word in ['tkinter', 'TclError']):
-            pytest.xfail(reason='Tkinter not installed properly')
+        if all(word in log["message"] for word in ["tkinter", "TclError"]):
+            pytest.xfail(reason="Tkinter not installed properly")
 
     check_report(expected=expected_report, actual=plan.report)
 
